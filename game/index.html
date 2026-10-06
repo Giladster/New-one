@@ -7,10 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: full-screen 3D scene, glass HUD panels pinned to the corners. Single dark "deep space" look. */
+/* Layout: full-screen 3D scene. Glass panels sit in fixed slots (info top-left, tools left, notes/chat right),
+   a dock at the bottom opens and closes them. Single dark "deep space" look. */
 :root {
   --void: #05060f;
-  --panel: rgba(14, 18, 38, 0.78);
+  --panel: rgba(14, 18, 38, 0.82);
   --line: rgba(140, 170, 255, 0.18);
   --text: #e6ebff;
   --muted: #8d97c2;
@@ -23,78 +24,191 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--void); color: var(--text); font: 14px/1.45 var(--body); overflow: hidden; }
-canvas#scene { position: fixed; inset: 0; display: block; }
+canvas#scene { position: fixed; inset: 0; display: block; touch-action: none; }
 .hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(8px); }
 .label { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+button { font: 500 13px var(--display); letter-spacing: .04em; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 7px; padding: 7px 11px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.12); }
+button.on { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+button.danger { border-color: rgba(255,90,110,.5); color: var(--danger); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+input[type=text], select { font: 13px var(--body); color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; min-width: 0; }
+input[type=color] { width: 34px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
 
-#top { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; padding: 12px 16px; display: grid; gap: 6px; min-width: 240px; }
-#top h1 { margin: 0; font: 700 22px var(--display); letter-spacing: .02em; }
-#top .owner { color: var(--accent); font-family: var(--mono); font-size: 13px; }
+/* panels */
+.panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px; }
+.ph { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px -4px 0 0; }
+.x { padding: 2px 8px; font-size: 16px; line-height: 1; background: none; border-color: transparent; color: var(--muted); }
+.x:hover { color: var(--text); }
+.group { display: grid; gap: 6px; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.row input[type=text] { flex: 1; }
+
+#p-info { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 260px; gap: 6px; }
+#p-info h1 { margin: 0; font: 700 22px var(--display); letter-spacing: .02em; }
+#p-info .owner { color: var(--accent); font-family: var(--mono); font-size: 13px; }
 .hp { display: flex; align-items: center; gap: 8px; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
 .hp .bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
 .hp .fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--accent) 40%, #7dff9b); transition: width .4s; }
 
-#build { left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; max-width: calc(100% - 32px); }
-#build button, #notes button, #chat button { font: 500 13px var(--display); letter-spacing: .04em; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; cursor: pointer; }
-#build button:hover { background: rgba(255,255,255,.12); }
-#build button.on { background: var(--accent); color: #1a1205; border-color: var(--accent); }
-#build button.attack { border-color: rgba(255,90,110,.5); color: var(--danger); }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-#signText, #noteText, #chatText { font: 13px var(--body); color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 170px; }
-.hint { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: calc(86px + env(safe-area-inset-bottom, 0px)); font: 12px var(--mono); color: var(--cyan); pointer-events: none; text-align: center; }
-
-.side { width: 280px; padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-#notes { top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; }
-#chat { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: 16px; }
-.list { display: grid; gap: 6px; max-height: 170px; overflow-y: auto; }
+.tool { top: calc(150px + env(safe-area-inset-top, 0px)); left: 16px; width: 300px; max-height: calc(100% - 240px); overflow-y: auto; }
+.side { right: 16px; width: 280px; }
+#p-notes { top: calc(16px + env(safe-area-inset-top, 0px)); }
+#p-chat { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+.list { display: grid; gap: 6px; max-height: 160px; overflow-y: auto; }
 .msg { font-size: 13px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.04); }
 .msg b { font-family: var(--mono); font-weight: 500; color: var(--cyan); font-size: 12px; }
 .msg time { float: right; color: var(--muted); font: 11px var(--mono); }
-.row { display: flex; gap: 6px; }
-.row input { flex: 1; min-width: 0; width: auto !important; }
 
-@media (max-width: 760px) {
-  .side { width: auto; left: 16px; right: 16px !important; }
-  #notes { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
-  #chat { display: none; }
-  #top { min-width: 0; }
+.templates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.templates button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 6px 8px; }
+.dot { width: 18px; height: 18px; border-radius: 50%; flex: none; border: 1px solid rgba(255,255,255,.25); }
+.colors { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; text-align: center; font: 10px var(--mono); color: var(--muted); }
+.colors label { display: grid; gap: 3px; justify-items: center; }
+.slider { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.choice { display: flex; flex-wrap: wrap; gap: 5px; }
+.choice button { padding: 5px 9px; font-size: 12px; }
+
+#dock { left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 32px); }
+#dock .fly { background: var(--cyan); color: #04131a; border-color: var(--cyan); font-weight: 700; }
+#dock .sep { width: 1px; background: var(--line); margin: 2px 2px; }
+
+.hint { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: calc(72px + env(safe-area-inset-bottom, 0px)); font: 12px var(--mono); color: var(--cyan); pointer-events: none; text-align: center; width: max-content; max-width: calc(100% - 32px); }
+#tip { position: fixed; z-index: 3; pointer-events: none; padding: 6px 9px; font: 12px var(--mono); border-radius: 7px; transform: translate(14px, 14px); white-space: nowrap; }
+#tip b { color: var(--accent); font-weight: 500; }
+.tag { position: fixed; z-index: 1; pointer-events: none; font: 11px var(--mono); color: var(--text); transform: translate(-50%, -100%); text-align: center; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+.tag b { color: var(--accent); font-weight: 500; }
+.tag.edge { opacity: .55; font-size: 10px; }
+
+#flyHud { top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); padding: 8px 14px; display: flex; gap: 16px; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+#flyHud b { color: var(--cyan); font-weight: 500; }
+#crosshair { position: fixed; z-index: 1; left: 50%; top: 45%; width: 22px; height: 22px; margin: -11px; border: 1.5px solid rgba(111,227,255,.6); border-radius: 50%; pointer-events: none; }
+#p-help { left: 16px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 240px; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 12px; }
+kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); background: rgba(255,255,255,.06); justify-self: start; }
+#pad { position: fixed; z-index: 2; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); display: none; grid-template-columns: repeat(3, 52px); gap: 6px; }
+#pad button { height: 52px; padding: 0; font-size: 18px; user-select: none; touch-action: none; }
+@media (pointer: coarse) { body.flying #pad { display: grid; } }
+
+@media (max-width: 820px) {
+  .tool, .side, #p-help { left: 16px; right: 16px; width: auto; top: auto; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); max-height: 45%; overflow-y: auto; }
+  #p-info { width: auto; right: 16px; }
+  .hint { display: none; }
 }
+@media (prefers-reduced-motion: reduce) { .hp .fill { transition: none; } }
 </style>
 </head>
 <body>
 <canvas id="scene"></canvas>
 
-<section id="top" class="hud">
-  <span class="label">Your planet</span>
+<section id="p-info" class="hud panel" data-panel="info">
+  <div class="ph"><span class="label">Your planet</span><button class="x" data-close="info" aria-label="Close planet info">×</button></div>
   <h1 id="planetName">Kepler-7b</h1>
   <span class="owner">owner: gilad</span>
   <div class="hp"><span>HULL</span><div class="bar"><div class="fill" id="hpFill" style="width:100%"></div></div><span id="hpText">100%</span></div>
 </section>
 
-<section id="notes" class="hud side">
-  <span class="label">Notes left on your planet</span>
+<section id="p-build" class="hud panel tool" data-panel="build" hidden>
+  <div class="ph"><span class="label">Decorate</span><button class="x" data-close="build" aria-label="Close decorate">×</button></div>
+  <div class="row"><button data-tool="tower">Tower</button><button data-tool="sign">Sign</button><button data-tool="remove">Remove</button></div>
+  <div class="group"><span class="label">Sign text</span><input id="signText" type="text" maxlength="18" value="HELLO SPACE" aria-label="Sign text"></div>
+  <div class="row"><button class="danger" id="attack">Test attack</button><button id="reset">Reset demo</button></div>
+</section>
+
+<section id="p-design" class="hud panel tool" data-panel="design" hidden>
+  <div class="ph"><span class="label">Design your planet</span><button class="x" data-close="design" aria-label="Close design">×</button></div>
+  <div class="group"><span class="label">Name</span><input id="nameInput" type="text" maxlength="20" aria-label="Planet name"></div>
+  <div class="group"><span class="label">Templates</span><div class="templates" id="templates"></div></div>
+  <div class="group"><span class="label">Colors</span>
+    <div class="colors">
+      <label>sea<input type="color" id="c-sea"></label>
+      <label>beach<input type="color" id="c-shore"></label>
+      <label>land<input type="color" id="c-low"></label>
+      <label>hills<input type="color" id="c-high"></label>
+      <label>peaks<input type="color" id="c-peak"></label>
+    </div>
+  </div>
+  <div class="group"><span class="label">Pattern</span>
+    <div class="choice" id="patterns"></div>
+    <div class="row"><input type="color" id="c-p1" aria-label="Pattern color 1"><input type="color" id="c-p2" aria-label="Pattern color 2"><span class="label">air</span><input type="color" id="c-atmo" aria-label="Air glow color"></div>
+  </div>
+  <div class="group"><span class="label">Shape</span>
+    <label class="slider">Sea level<input type="range" id="s-sea" min="0" max="0.7" step="0.01"></label>
+    <label class="slider">Mountains<input type="range" id="s-mtn" min="0" max="1.5" step="0.01"></label>
+    <label class="slider">Bumpiness<input type="range" id="s-bump" min="0.5" max="4" step="0.05"></label>
+    <div class="row"><button id="newShape">New shape</button></div>
+  </div>
+  <div class="group"><span class="label">Brushes · drag on the planet</span>
+    <div class="row"><button data-tool="raise">Mountain</button><button data-tool="lower">Sea</button><button data-tool="smooth">Smooth</button><button data-tool="paint">Paint</button><input type="color" id="c-brush" value="#ff5ab4" aria-label="Paint color"></div>
+    <label class="slider">Brush size<input type="range" id="s-brush" min="0.08" max="0.6" step="0.01" value="0.22"></label>
+    <div class="row"><button id="clearSculpt">Clear brushes</button><button id="clearPaint">Clear paint</button></div>
+  </div>
+</section>
+
+<section id="p-hangar" class="hud panel tool" data-panel="hangar" hidden>
+  <div class="ph"><span class="label">Hangar · build your ship</span><button class="x" data-close="hangar" aria-label="Close hangar">×</button></div>
+  <div class="group"><span class="label">Ship name</span><input id="shipName" type="text" maxlength="18" aria-label="Ship name"></div>
+  <div class="group"><span class="label">Body</span><div class="choice" id="hulls"></div></div>
+  <div class="group"><span class="label">Wings</span><div class="choice" id="wings"></div></div>
+  <div class="group"><span class="label">Engines</span><div class="choice" id="engines"></div></div>
+  <div class="group"><span class="label">Colors</span>
+    <div class="row"><label class="label">body <input type="color" id="sc-body"></label><label class="label">trim <input type="color" id="sc-accent"></label><label class="label">fire <input type="color" id="sc-flame"></label></div>
+  </div>
+  <div class="row"><button class="on" id="goFly">Fly it</button></div>
+</section>
+
+<section id="p-notes" class="hud panel side" data-panel="notes">
+  <div class="ph"><span class="label">Notes left on your planet</span><button class="x" data-close="notes" aria-label="Close notes">×</button></div>
   <div class="list" id="noteList"></div>
-  <div class="row"><input id="noteText" maxlength="80" placeholder="Leave a note…"><button id="noteSend">Leave</button></div>
+  <div class="row"><input id="noteText" type="text" maxlength="80" placeholder="Leave a note…" aria-label="Note"><button id="noteSend">Leave</button></div>
 </section>
 
-<section id="chat" class="hud side">
-  <span class="label">Galaxy chat</span>
+<section id="p-chat" class="hud panel side" data-panel="chat">
+  <div class="ph"><span class="label">Galaxy chat</span><button class="x" data-close="chat" aria-label="Close chat">×</button></div>
   <div class="list" id="chatList"></div>
-  <div class="row"><input id="chatText" maxlength="120" placeholder="Say something…"><button id="chatSend">Send</button></div>
+  <div class="row"><input id="chatText" type="text" maxlength="120" placeholder="Say something…" aria-label="Chat message"><button id="chatSend">Send</button></div>
 </section>
 
-<div class="hint" id="hint">Drag to spin · scroll to zoom · pick a tool to build</div>
-
-<section id="build" class="hud">
-  <button data-tool="tower">Tower</button>
-  <button data-tool="sign">Sign</button>
-  <input id="signText" maxlength="18" value="HELLO SPACE" aria-label="Sign text">
-  <button data-tool="remove">Remove</button>
-  <button class="attack" id="attack">Test attack</button>
-  <button id="reset">Reset</button>
+<section id="p-help" class="hud panel" data-panel="help" hidden>
+  <div class="ph"><span class="label">Flight controls</span><button class="x" data-close="help" aria-label="Close flight controls">×</button></div>
+  <div class="keys">
+    <kbd>W / S</kbd><span>go / brake</span>
+    <kbd>A / D</kbd><span>turn left / right</span>
+    <kbd>↑ / ↓</kbd><span>nose up / down</span>
+    <kbd>Q / E</kbd><span>roll</span>
+    <kbd>Shift</kbd><span>boost</span>
+    <kbd>Space</kbd><span>shoot</span>
+    <kbd>Esc</kbd><span>land at home</span>
+  </div>
 </section>
+
+<div id="flyHud" class="hud" hidden><span>SHIP <b id="hudShip">—</b></span><span>SPEED <b id="hudSpeed">0</b></span><span>HOME <b id="hudHome">0</b> km</span></div>
+<div id="crosshair" hidden></div>
+<div id="tip" class="hud" hidden></div>
+<div id="tags"></div>
+<div class="hint" id="hint"></div>
+
+<div id="pad" aria-hidden="true">
+  <button data-k="KeyQ">⟲</button><button data-k="ArrowUp">▲</button><button data-k="KeyE">⟳</button>
+  <button data-k="KeyA">◀</button><button data-k="KeyW">GO</button><button data-k="KeyD">▶</button>
+  <button data-k="ShiftLeft">»</button><button data-k="ArrowDown">▼</button><button data-k="Space">✸</button>
+</div>
+
+<nav id="dock" class="hud" aria-label="Menus">
+  <button data-open="info">Planet</button>
+  <button data-open="design">Design</button>
+  <button data-open="build">Decorate</button>
+  <button data-open="hangar">Hangar</button>
+  <button data-open="notes">Notes</button>
+  <button data-open="chat">Chat</button>
+  <button data-open="help" id="helpBtn" hidden>Controls</button>
+  <span class="sep"></span>
+  <button class="fly" id="flyBtn">Fly</button>
+</nav>
 
 <script type="importmap">
 { "imports": {
@@ -105,21 +219,48 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outl
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+const $ = (id) => document.getElementById(id);
+const V = (a) => new THREE.Vector3(...a);
 
-// ---------- storage (local only for now; server comes later) ----------
-const KEY = "tinyplanets.v1";
-const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } };
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+// ================= templates =================
+const TEMPLATES = {
+  earth:  { label: "Blue Marble", sea: "#2a5bd7", shore: "#e8c98a", low: "#4fbf6a", high: "#2f8a52", peak: "#f4f6ff", p1: "#ffffff", p2: "#ffffff", atmo: "#59bfff", seaLevel: .47, mountains: .55, bumps: 1.6, pattern: "none", polar: true },
+  lava:   { label: "Lava Land",   sea: "#ff6a1a", shore: "#ffb547", low: "#3a2a2a", high: "#1d1414", peak: "#5a2a20", p1: "#000000", p2: "#000000", atmo: "#ff7a3a", seaLevel: .5,  mountains: .8,  bumps: 2.2, pattern: "none" },
+  ice:    { label: "Ice Ball",    sea: "#7fd6ff", shore: "#e6f7ff", low: "#cfe8ff", high: "#a9c6ef", peak: "#ffffff", p1: "#ffffff", p2: "#ffffff", atmo: "#bfe9ff", seaLevel: .46, mountains: .5,  bumps: 1.4, pattern: "none", polar: true },
+  candy:  { label: "Candy",       sea: "#ff7ac8", shore: "#fff0a8", low: "#8ff0c8", high: "#c8a2ff", peak: "#ffffff", p1: "#ff3f8e", p2: "#fff6fb", atmo: "#ffb3e6", seaLevel: .47, mountains: .45, bumps: 1.3, pattern: "stripes" },
+  cheese: { label: "Cheese Moon", sea: "#d9a520", shore: "#f2c94c", low: "#f6d55c", high: "#f2c94c", peak: "#fde58a", p1: "#b9821a", p2: "#f6d55c", atmo: "#ffe08a", seaLevel: 0,   mountains: .3,  bumps: 2,   pattern: "holes" },
+  melon:  { label: "Watermelon",  sea: "#2f8a3a", shore: "#2f8a3a", low: "#3fae4a", high: "#3fae4a", peak: "#3fae4a", p1: "#1d5e27", p2: "#7fd36a", atmo: "#9dffb0", seaLevel: 0,   mountains: .12, bumps: 1.2, pattern: "stripes" },
+  disco:  { label: "Disco Ball",  sea: "#c9d2ea", shore: "#c9d2ea", low: "#c9d2ea", high: "#c9d2ea", peak: "#c9d2ea", p1: "#ff4fd8", p2: "#4fd8ff", atmo: "#ff9df0", seaLevel: 0,   mountains: .05, bumps: 1,   pattern: "checker" },
+  toxic:  { label: "Toxic Swamp", sea: "#7dff3a", shore: "#3a2a4a", low: "#5a2a7a", high: "#3a1a5a", peak: "#b07aff", p1: "#000000", p2: "#000000", atmo: "#a6ff6a", seaLevel: .5,  mountains: .6,  bumps: 2.6, pattern: "none" },
+};
+const PATTERNS = { none: "None", stripes: "Stripes", checker: "Checks", holes: "Holes", spots: "Spots" };
+const designFrom = (key, seed = 1) => ({ template: key, seed, ...structuredClone(TEMPLATES[key]) });
+
+const HULLS = { dart: "Dart", rocket: "Rocket", saucer: "Saucer", van: "Space van" };
+const WINGS = { none: "None", swept: "Swept", wide: "Wide", ring: "Ring" };
+
+// ================= state =================
+const KEY = "tinyplanets.v2", UIKEY = "tinyplanets.ui";
+const load = (k) => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch { return null; } };
+const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const defaults = () => ({
-  hp: 100,
-  craters: [],
-  decor: [
-    { type: "tower", n: [0.2, 0.95, 0.2] },
-    { type: "tower", n: [-0.5, 0.7, 0.5] },
-    { type: "sign", n: [0.55, 0.6, 0.58], text: "GILAD'S ROCK" },
-    { type: "sign", n: [0.1, 0.25, 0.95], text: "NO PARKING" },
-    { type: "tower", n: [0.8, 0.1, 0.55] },
+  home: {
+    name: "Kepler-7b", owner: "gilad", R: 1.6, pos: [0, 0, 0], hp: 100, craters: [], sculpt: null, paint: null,
+    design: designFrom("earth", 1),
+    decor: [
+      { type: "tower", n: [0.2, 0.95, 0.2] }, { type: "tower", n: [-0.5, 0.7, 0.5] }, { type: "tower", n: [0.8, 0.1, 0.55] },
+      { type: "sign", n: [0.55, 0.6, 0.58], text: "GILAD'S ROCK" }, { type: "sign", n: [0.1, 0.25, 0.95], text: "NO PARKING" },
+    ],
+  },
+  others: [
+    { name: "Bubblegum", owner: "luna", R: 1.3, pos: [-11, 3, -15], hp: 100, craters: [], design: designFrom("candy", 4), decor: [{ type: "sign", n: [0, .4, 1], text: "SWEET HOME" }, { type: "tower", n: [.5, .8, .2] }] },
+    { name: "Gouda Prime", owner: "zork", R: 2.1, pos: [17, -4, -23], hp: 70, craters: [{ n: [.3, .2, .93], size: .25 }], design: designFrom("cheese", 7), decor: [{ type: "tower", n: [-.3, .9, .3] }] },
+    { name: "Melonia", owner: "nova_kid", R: 1.1, pos: [-20, -7, 9], hp: 100, craters: [], design: designFrom("melon", 2), decor: [{ type: "sign", n: [0, .3, 1], text: "NO SEEDS" }] },
+    { name: "Inferno", owner: "rex", R: 1.8, pos: [13, 9, 17], hp: 100, craters: [], design: designFrom("lava", 9), decor: [] },
+    { name: "Disco Fever", owner: "pip", R: 1.2, pos: [4, 13, -30], hp: 100, craters: [], design: designFrom("disco", 3), decor: [{ type: "tower", n: [0, 1, 0] }] },
+    { name: "Gloop", owner: "mira", R: 1.5, pos: [-30, 10, -25], hp: 100, craters: [], design: designFrom("toxic", 5), decor: [] },
   ],
+  ship: { name: "Rusty Bucket", hull: "dart", wings: "swept", engines: 1, body: "#c9d2ea", accent: "#ffb547", flame: "#6fe3ff" },
   notes: [
     { who: "nova_kid", text: "Nice towers! Mine has 12 now 😎", t: "yesterday" },
     { who: "zork", text: "Sorry about the crater, wrong planet.", t: "2d ago" },
@@ -130,51 +271,40 @@ const defaults = () => ({
     { who: "nova_kid", text: "too late 💥", t: "10:04" },
   ],
 });
-let state = load() || defaults();
+let state = load(KEY) || defaults();
+let saveTimer = 0;
+const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => {
+  for (const p of planets) p.pack();
+  store(KEY, state);
+}, 250); };
 
-// ---------- scene ----------
-const canvas = document.getElementById("scene");
+// ================= renderer + scene =================
+const canvas = $("scene");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 3000);
 camera.position.set(0, 1.2, 6.5);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.enablePan = false;
-controls.minDistance = 3; controls.maxDistance = 14;
+controls.minDistance = 2.6; controls.maxDistance = 16;
 
-scene.add(new THREE.AmbientLight(0x6c78b8, 0.55));
-const sun = new THREE.DirectionalLight(0xfff1d6, 2.2);
-sun.position.set(5, 3, 4); scene.add(sun);
-const rim = new THREE.DirectionalLight(0x6fe3ff, 0.6);
-rim.position.set(-6, -2, -4); scene.add(rim);
-
-// stars
+scene.add(new THREE.AmbientLight(0x6c78b8, 0.6));
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.2); sun.position.set(5, 3, 4); scene.add(sun);
+const rim = new THREE.DirectionalLight(0x6fe3ff, 0.6); rim.position.set(-6, -2, -4); scene.add(rim);
 {
-  const g = new THREE.BufferGeometry(), N = 3000, p = new Float32Array(N * 3), c = new Float32Array(N * 3);
+  const g = new THREE.BufferGeometry(), N = 3500, p = new Float32Array(N * 3), c = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) {
-    const v = new THREE.Vector3().randomDirection().multiplyScalar(300 + Math.random() * 500);
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(500 + Math.random() * 800);
     p.set([v.x, v.y, v.z], i * 3);
-    const tint = Math.random(); c.set(tint > .8 ? [1, .85, .6] : tint > .6 ? [.7, .85, 1] : [1, 1, 1], i * 3);
+    const t = Math.random(); c.set(t > .8 ? [1, .85, .6] : t > .6 ? [.7, .85, 1] : [1, 1, 1], i * 3);
   }
   g.setAttribute("position", new THREE.BufferAttribute(p, 3));
   g.setAttribute("color", new THREE.BufferAttribute(c, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.6, vertexColors: true, sizeAttenuation: true })));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2, vertexColors: true })));
 }
 
-// far-away neighbour planets (other players)
-const neighbours = [
-  { pos: [-60, 18, -120], r: 6, col: 0x4f7cff },
-  { pos: [80, -25, -160], r: 9, col: 0xd86bff },
-  { pos: [40, 40, -220], r: 4, col: 0x7dff9b },
-];
-for (const n of neighbours) {
-  const m = new THREE.Mesh(new THREE.IcosahedronGeometry(n.r, 3), new THREE.MeshStandardMaterial({ color: n.col, flatShading: true, roughness: .9 }));
-  m.position.set(...n.pos); scene.add(m);
-}
-
-// ---------- planet ----------
-const R = 1.6;
+// ================= noise =================
 function hash(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
 function noise(x, y, z) {
   const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
@@ -185,61 +315,16 @@ function noise(x, y, z) {
     r += hash(xi + dx, yi + dy, zi + dz) * (dx ? u : 1 - u) * (dy ? v : 1 - v) * (dz ? w : 1 - w);
   return r;
 }
-const fbm = (v) => noise(v.x * 1.6, v.y * 1.6, v.z * 1.6) * .6 + noise(v.x * 4, v.y * 4, v.z * 4) * .3 + noise(v.x * 9, v.y * 9, v.z * 9) * .1;
+const fbm = (x, y, z, f, s) => noise(x * f + s, y * f, z * f) * .6 + noise(x * f * 2.5 + s, y * f * 2.5, z * f * 2.5) * .3 + noise(x * f * 5.6 + s, y * f * 5.6, z * f * 5.6) * .1;
 
-const planetGeo = new THREE.IcosahedronGeometry(R, 24);
-const basePos = planetGeo.attributes.position.array.slice();
-planetGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(basePos.length), 3));
-const planet = new THREE.Mesh(planetGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: .95 }));
-scene.add(planet);
+// byte packing for brush data
+const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
+const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-const C = {
-  sea: new THREE.Color(0x2a5bd7), shore: new THREE.Color(0xe8c98a), grass: new THREE.Color(0x4fbf6a),
-  forest: new THREE.Color(0x2f8a52), rock: new THREE.Color(0x8a7f8f), snow: new THREE.Color(0xf4f6ff), scorch: new THREE.Color(0x2a1a14),
-};
-function heightAt(n) {
-  let h = fbm(n);
-  h = h < .45 ? .45 : h; // flat sea
-  let crater = 0;
-  for (const c of state.craters) {
-    const d = n.distanceTo(new THREE.Vector3(...c.n));
-    if (d < c.size) crater = Math.max(crater, (1 - d / c.size) ** 1.5);
-  }
-  return { h, crater };
-}
-function rebuildPlanet() {
-  const pos = planetGeo.attributes.position, col = planetGeo.attributes.color, v = new THREE.Vector3(), cc = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromArray(basePos, i * 3).normalize();
-    const { h, crater } = heightAt(v);
-    const elev = (h - .45) * .55 - crater * .22;
-    pos.setXYZ(i, ...v.clone().multiplyScalar(R * (1 + elev)).toArray());
-    if (h <= .45) cc.copy(C.sea);
-    else if (h < .48) cc.copy(C.shore);
-    else if (h < .58) cc.copy(C.grass);
-    else if (h < .66) cc.copy(C.forest);
-    else if (h < .72) cc.copy(C.rock);
-    else cc.copy(C.snow);
-    if (Math.abs(v.y) > .9) cc.lerp(C.snow, .85);
-    if (crater > 0) cc.lerp(C.scorch, Math.min(1, crater * 1.6));
-    col.setXYZ(i, cc.r, cc.g, cc.b);
-  }
-  pos.needsUpdate = col.needsUpdate = true;
-  planetGeo.computeVertexNormals();
-}
-const surfaceRadius = (n) => { const { h, crater } = heightAt(n); return R * (1 + (h - .45) * .55 - crater * .22); };
-rebuildPlanet();
-
-// atmosphere glow
-const atmo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.18, 64, 64), new THREE.ShaderMaterial({
-  side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
-  vertexShader: `varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vec4 p=modelViewMatrix*vec4(position,1.); vP=p.xyz; gl_Position=projectionMatrix*p; }`,
-  fragmentShader: `varying vec3 vN; varying vec3 vP; void main(){ float f=pow(1.0-abs(dot(vN,normalize(-vP))),2.0); gl_FragColor=vec4(0.35,0.75,1.0,1.0)*f*0.9; }`,
-}));
-scene.add(atmo);
-
-// ---------- decorations ----------
-const decorGroup = new THREE.Group(); planet.add(decorGroup);
+// ================= decorations =================
+const wood = new THREE.MeshStandardMaterial({ color: 0x7a4e2a, roughness: 1 });
+const metal = new THREE.MeshStandardMaterial({ color: 0xc9d2ea, metalness: .6, roughness: .35, flatShading: true });
+const lamp = new THREE.MeshBasicMaterial({ color: 0xffb547 });
 function signTexture(text) {
   const c = document.createElement("canvas"); c.width = 256; c.height = 128;
   const g = c.getContext("2d");
@@ -250,9 +335,6 @@ function signTexture(text) {
   g.fillText(text, 128, 66);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const wood = new THREE.MeshStandardMaterial({ color: 0x7a4e2a, roughness: 1 });
-const metal = new THREE.MeshStandardMaterial({ color: 0xc9d2ea, metalness: .6, roughness: .35, flatShading: true });
-const lamp = new THREE.MeshBasicMaterial({ color: 0xffb547 });
 function makeTower() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .07, .38, 8), metal); body.position.y = .19;
@@ -264,154 +346,530 @@ function makeTower() {
 function makeSign(text) {
   const g = new THREE.Group();
   const post = new THREE.Mesh(new THREE.BoxGeometry(.025, .22, .025), wood); post.position.y = .11;
-  const board = new THREE.Mesh(new THREE.BoxGeometry(.26, .13, .018), [wood, wood, wood, wood, new THREE.MeshStandardMaterial({ map: signTexture(text), roughness: 1 }), wood]);
-  board.position.y = .25;
+  const face = new THREE.MeshStandardMaterial({ map: signTexture(text), roughness: 1 });
+  const board = new THREE.Mesh(new THREE.BoxGeometry(.26, .13, .018), [wood, wood, wood, wood, face, wood]); board.position.y = .25;
   g.add(post, board); g.scale.setScalar(1.5); return g;
 }
-function placeDecor(d) {
-  const n = new THREE.Vector3(...d.n).normalize();
-  const obj = d.type === "tower" ? makeTower() : makeSign(d.text || "");
-  obj.position.copy(n).multiplyScalar(surfaceRadius(n) - .01);
-  if (d.type === "sign") {
-    // turn the board so its front faces the way the player was looking when they placed it
-    const face = new THREE.Vector3(...(d.face || [0, 0.2, 1]));
-    const z = face.sub(n.clone().multiplyScalar(face.dot(n))).normalize();
-    const x = n.clone().cross(z);
-    obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, n, z));
-  } else {
-    obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
-    obj.rotateY(hash(n.x, n.y, n.z) * Math.PI * 2);
-  }
-  obj.userData.decor = d;
-  decorGroup.add(obj);
-}
-function rebuildDecor() { decorGroup.clear(); state.decor.forEach(placeDecor); }
-rebuildDecor();
 
-// ---------- a ship parked in orbit ----------
-const ship = new THREE.Group();
-{
-  const hull = new THREE.Mesh(new THREE.ConeGeometry(.08, .32, 6), metal); hull.rotation.z = -Math.PI / 2;
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(.12, .015, .3), new THREE.MeshStandardMaterial({ color: 0xffb547, flatShading: true }));
-  wing.position.x = -.05;
-  const flame = new THREE.Mesh(new THREE.ConeGeometry(.04, .14, 8), new THREE.MeshBasicMaterial({ color: 0x6fe3ff }));
-  flame.rotation.z = Math.PI / 2; flame.position.x = -.22; ship.userData.flame = flame;
-  ship.add(hull, wing, flame);
-}
-scene.add(ship);
-
-// ---------- tools ----------
-let tool = null;
-const hint = document.getElementById("hint");
-const hints = { tower: "Click the planet to place a tower", sign: "Click the planet to place your sign", remove: "Click a tower or sign to remove it" };
-document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
-  tool = tool === b.dataset.tool ? null : b.dataset.tool;
-  document.querySelectorAll("[data-tool]").forEach(x => x.classList.toggle("on", x.dataset.tool === tool));
-  hint.textContent = tool ? hints[tool] : "Drag to spin · scroll to zoom · pick a tool to build";
-}));
-
-const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
-let down = null;
-canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
-canvas.addEventListener("pointerup", e => {
-  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !tool) return;
-  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  ray.setFromCamera(mouse, camera);
-  if (tool === "remove") {
-    const hit = ray.intersectObject(decorGroup, true)[0];
-    if (!hit) return;
-    let o = hit.object; while (o.parent !== decorGroup) o = o.parent;
-    state.decor = state.decor.filter(d => d !== o.userData.decor);
-  } else {
-    const hit = ray.intersectObject(planet, false)[0];
-    if (!hit) return;
-    const n = planet.worldToLocal(hit.point.clone()).normalize();
-    const d = { type: tool, n: n.toArray().map(x => +x.toFixed(4)) };
-    if (tool === "sign") {
-      d.text = (document.getElementById("signText").value || "HI").toUpperCase();
-      d.face = planet.worldToLocal(camera.position.clone()).normalize().toArray().map(x => +x.toFixed(4));
+// ================= planet =================
+const SCORCH = new THREE.Color(0x2a1a14);
+class Planet {
+  constructor(data, detail, isHome) {
+    this.data = data; this.isHome = isHome;
+    this.group = new THREE.Group(); this.group.position.copy(V(data.pos)); scene.add(this.group);
+    const geo = this.geo = new THREE.IcosahedronGeometry(1, detail);
+    // shared corners -> one "unique vertex" so brushes move faces together
+    const pos = geo.attributes.position, map = new Uint32Array(pos.count), keys = new Map(), dirs = [];
+    for (let i = 0; i < pos.count; i++) {
+      const k = `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+      let u = keys.get(k);
+      if (u === undefined) { u = dirs.length / 3; keys.set(k, u); const v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize(); dirs.push(v.x, v.y, v.z); }
+      map[i] = u;
     }
-    state.decor.push(d);
+    this.map = map; this.dirs = Float32Array.from(dirs); this.U = dirs.length / 3;
+    this.base = new Float32Array(this.U); this.radius = new Float32Array(this.U); this.rgb = new Float32Array(this.U * 3);
+    this.sculpt = new Float32Array(this.U); this.paint = new Uint8Array(this.U * 4);
+    if (data.sculpt) { const b = unb64(data.sculpt); if (b.length === this.U * 4) this.sculpt = new Float32Array(b.buffer); }
+    if (data.paint) { const b = unb64(data.paint); if (b.length === this.U * 4) this.paint = b; }
+    geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3));
+    this.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: .9, metalness: 0 }));
+    this.mesh.userData.planet = this;
+    this.atmoMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      uniforms: { col: { value: new THREE.Color() } },
+      vertexShader: `varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vec4 p=modelViewMatrix*vec4(position,1.); vP=p.xyz; gl_Position=projectionMatrix*p; }`,
+      fragmentShader: `uniform vec3 col; varying vec3 vN; varying vec3 vP; void main(){ float f=pow(1.0-abs(dot(vN,normalize(-vP))),2.0); gl_FragColor=vec4(col,1.0)*f*0.9; }`,
+    });
+    this.atmo = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), this.atmoMat);
+    this.decor = new THREE.Group(); this.mesh.add(this.decor);
+    this.group.add(this.mesh, this.atmo);
+    this.refreshBase(); this.rebuild(); this.rebuildDecor();
   }
-  rebuildDecor(); save();
-});
-
-// ---------- attack demo ----------
-const fx = [];
-function setHp() {
-  document.getElementById("hpFill").style.width = state.hp + "%";
-  document.getElementById("hpText").textContent = state.hp + "%";
+  get R() { return this.data.R; }
+  refreshBase() {
+    const d = this.data.design, f = d.bumps, s = d.seed * 17.3;
+    for (let u = 0; u < this.U; u++) this.base[u] = fbm(this.dirs[u * 3], this.dirs[u * 3 + 1], this.dirs[u * 3 + 2], f, s);
+  }
+  rebuild() {
+    const d = this.data.design, R = this.R, dead = this.data.hp <= 0;
+    const C = {}; for (const k of ["sea", "shore", "low", "high", "peak", "p1", "p2"]) C[k] = new THREE.Color(d[k]);
+    const craters = this.data.craters.map((c) => ({ v: V(c.n).normalize(), cos: Math.cos(c.size), size: c.size }));
+    const col = new THREE.Color(), n = new THREE.Vector3();
+    for (let u = 0; u < this.U; u++) {
+      n.fromArray(this.dirs, u * 3);
+      const raw = this.base[u] + this.sculpt[u];
+      let elev, land = raw >= d.seaLevel;
+      if (!land) { elev = 0; col.copy(C.sea); }
+      else {
+        const t = raw - d.seaLevel; elev = t * d.mountains * .55;
+        col.copy(t < .025 && d.seaLevel > 0 ? C.shore : t < .1 ? C.low : t < .18 ? C.high : C.peak);
+        const lon = Math.atan2(n.z, n.x), lat = Math.asin(n.y);
+        if (d.pattern === "stripes") col.copy(Math.sin(lon * 8 + lat * 2) > 0 ? C.p1 : C.p2);
+        else if (d.pattern === "checker") col.copy((Math.floor(lon / Math.PI * 12) + Math.floor(lat / Math.PI * 12)) & 1 ? C.p1 : C.p2);
+        else if (d.pattern === "holes") { const h = noise(n.x * 7 + 3, n.y * 7, n.z * 7); if (h > .68) { col.copy(C.p1); elev -= (h - .68) * .25; } }
+        else if (d.pattern === "spots") { const h = noise(n.x * 5 + 9, n.y * 5, n.z * 5); if (h > .62) col.copy(C.p1); else if (h < .3) col.copy(C.p2); }
+      }
+      if (d.polar && Math.abs(n.y) > .9) col.lerp(C.peak, .85);
+      let crater = 0;
+      for (const c of craters) { const dt = n.dot(c.v); if (dt > c.cos) crater = Math.max(crater, ((dt - c.cos) / (1 - c.cos)) ** 1.2); }
+      if (crater) { elev -= crater * .14; col.lerp(SCORCH, Math.min(1, crater * 1.6)); }
+      if (this.paint[u * 4 + 3]) col.setRGB(this.paint[u * 4] / 255, this.paint[u * 4 + 1] / 255, this.paint[u * 4 + 2] / 255, THREE.SRGBColorSpace);
+      if (dead) col.lerp(SCORCH, .75);
+      this.radius[u] = R * (1 + elev);
+      this.rgb[u * 3] = col.r; this.rgb[u * 3 + 1] = col.g; this.rgb[u * 3 + 2] = col.b;
+    }
+    const pos = this.geo.attributes.position, cols = this.geo.attributes.color;
+    for (let i = 0; i < pos.count; i++) {
+      const u = this.map[i], r = this.radius[u];
+      pos.setXYZ(i, this.dirs[u * 3] * r, this.dirs[u * 3 + 1] * r, this.dirs[u * 3 + 2] * r);
+      cols.setXYZ(i, this.rgb[u * 3], this.rgb[u * 3 + 1], this.rgb[u * 3 + 2]);
+    }
+    pos.needsUpdate = cols.needsUpdate = true;
+    this.geo.computeVertexNormals(); this.geo.computeBoundingSphere();
+    this.atmoMat.uniforms.col.value.set(d.atmo);
+    this.atmo.visible = !dead;
+    this.atmo.scale.setScalar(R * (1.15 + d.mountains * .05));
+    this.mesh.material.metalness = d.template === "disco" ? .5 : 0;
+    this.mesh.material.roughness = d.template === "disco" ? .35 : .9;
+  }
+  surface(n) { // radius of the ground under a direction
+    let best = -2, r = this.R;
+    for (let u = 0; u < this.U; u++) { const dt = this.dirs[u * 3] * n.x + this.dirs[u * 3 + 1] * n.y + this.dirs[u * 3 + 2] * n.z; if (dt > best) { best = dt; r = this.radius[u]; } }
+    return r;
+  }
+  rebuildDecor() {
+    this.decor.clear();
+    for (const d of this.data.decor) {
+      const obj = d.type === "tower" ? makeTower() : makeSign(d.text || "");
+      obj.userData.decor = d; this.decor.add(obj);
+    }
+    this.placeDecor();
+  }
+  placeDecor() {
+    const s = this.R / 1.6;
+    for (const obj of this.decor.children) {
+      const d = obj.userData.decor, n = V(d.n).normalize();
+      obj.position.copy(n).multiplyScalar(this.surface(n) - .01);
+      if (d.type === "sign") {
+        const face = V(d.face || [0, 0.2, 1]);
+        const z = face.sub(n.clone().multiplyScalar(face.dot(n))).normalize(), x = n.clone().cross(z);
+        obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, n, z));
+        obj.scale.setScalar(1.5 * s);
+      } else {
+        obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
+        obj.rotateY(hash(n.x, n.y, n.z) * Math.PI * 2);
+        obj.scale.setScalar(s);
+      }
+    }
+  }
+  brush(n, tool, size, rgb) {
+    const cosL = Math.cos(size);
+    for (let u = 0; u < this.U; u++) {
+      const dt = this.dirs[u * 3] * n.x + this.dirs[u * 3 + 1] * n.y + this.dirs[u * 3 + 2] * n.z;
+      if (dt <= cosL) continue;
+      let f = (dt - cosL) / (1 - cosL); f = f * f * (3 - 2 * f);
+      if (tool === "raise") this.sculpt[u] = Math.min(.45, this.sculpt[u] + .012 * f);
+      else if (tool === "lower") this.sculpt[u] = Math.max(-.45, this.sculpt[u] - .012 * f);
+      else if (tool === "smooth") this.sculpt[u] *= 1 - .15 * f;
+      else if (tool === "paint" && f > .1) { this.paint.set([rgb[0], rgb[1], rgb[2], 1], u * 4); }
+    }
+    this.rebuild(); this.placeDecor();
+  }
+  hit(n) {
+    this.data.craters.push({ n: n.toArray().map((x) => +x.toFixed(4)), size: .18 + Math.random() * .1 });
+    this.data.decor = this.data.decor.filter((d) => V(d.n).normalize().distanceTo(n) > .22);
+    this.data.hp = Math.max(0, this.data.hp - 10);
+    this.rebuild(); this.rebuildDecor();
+    if (this.isHome) setHp();
+    save();
+  }
+  pack() {
+    if (!this.isHome) return;
+    this.data.sculpt = this.sculpt.some((x) => x) ? b64(new Uint8Array(this.sculpt.buffer)) : null;
+    this.data.paint = this.paint.some((x) => x) ? b64(this.paint) : null;
+  }
 }
-setHp();
-document.getElementById("attack").addEventListener("click", () => {
-  if (state.hp <= 0) return;
-  const target = new THREE.Vector3().randomDirection();
-  // aim at the side facing the camera so the hit is visible
-  const toCam = planet.worldToLocal(camera.position.clone()).normalize();
-  target.lerp(toCam, .7).normalize();
-  const worldHit = planet.localToWorld(target.clone().multiplyScalar(R));
-  const from = ship.position.clone();
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, 1, 6), new THREE.MeshBasicMaterial({ color: 0xff5a6e }));
-  const mid = from.clone().add(worldHit).multiplyScalar(.5);
-  beam.position.copy(mid); beam.scale.y = from.distanceTo(worldHit);
-  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldHit.clone().sub(from).normalize());
-  scene.add(beam); fx.push({ obj: beam, life: .25 });
 
-  setTimeout(() => {
-    state.craters.push({ n: target.toArray().map(x => +x.toFixed(4)), size: .18 + Math.random() * .1 });
-    state.decor = state.decor.filter(d => new THREE.Vector3(...d.n).normalize().distanceTo(target) > .2);
-    state.hp = Math.max(0, state.hp - 10);
-    rebuildPlanet(); rebuildDecor(); setHp(); save();
-    const boom = new THREE.Mesh(new THREE.SphereGeometry(.1, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true }));
-    boom.position.copy(planet.localToWorld(target.clone().multiplyScalar(R)));
-    scene.add(boom); fx.push({ obj: boom, life: .6, grow: true });
-    if (state.hp <= 0) hint.textContent = "Planet destroyed. Everyone will see it next time they log in.";
-  }, 180);
-});
-document.getElementById("reset").addEventListener("click", () => { state = defaults(); rebuildPlanet(); rebuildDecor(); setHp(); renderLists(); save(); });
+let home, planets = [];
+function buildWorld() {
+  for (const p of planets) scene.remove(p.group);
+  home = new Planet(state.home, 24, true);
+  planets = [home, ...state.others.map((o) => new Planet(o, 14, false))];
+  buildTags();
+}
 
-// ---------- notes + chat ----------
-const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// ================= ship =================
+const ship = new THREE.Group(); scene.add(ship);
+function buildShip() {
+  const c = state.ship; ship.clear();
+  const body = new THREE.MeshStandardMaterial({ color: c.body, metalness: .45, roughness: .4, flatShading: true });
+  const trim = new THREE.MeshStandardMaterial({ color: c.accent, roughness: .6, flatShading: true });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x6fe3ff, emissive: 0x1a4a66, roughness: .1, metalness: .2 });
+  const fire = new THREE.MeshBasicMaterial({ color: c.flame });
+  const add = (geo, mat, p = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1]) => { const m = new THREE.Mesh(geo, mat); m.position.set(...p); m.rotation.set(...r); m.scale.set(...s); ship.add(m); return m; };
+  const H = Math.PI / 2; let back = -.18;
+  if (c.hull === "dart") { add(new THREE.ConeGeometry(.08, .36, 6), body, [0, 0, 0], [H, 0, 0]); add(new THREE.SphereGeometry(.04, 10, 8), glass, [0, .045, .02], [0, 0, 0], [1, .7, 1.6]); }
+  if (c.hull === "rocket") { add(new THREE.CylinderGeometry(.06, .06, .26, 12), body, [0, 0, -.02], [H, 0, 0]); add(new THREE.ConeGeometry(.06, .14, 12), trim, [0, 0, .18], [H, 0, 0]); add(new THREE.SphereGeometry(.03, 10, 8), glass, [0, .045, .05]); back = -.15; }
+  if (c.hull === "saucer") { add(new THREE.SphereGeometry(.17, 20, 12), body, [0, 0, 0], [0, 0, 0], [1, .28, 1]); add(new THREE.SphereGeometry(.075, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), glass, [0, .03, 0]); add(new THREE.TorusGeometry(.17, .012, 6, 32), trim, [0, 0, 0], [H, 0, 0]); back = -.16; }
+  if (c.hull === "van") { add(new THREE.BoxGeometry(.17, .14, .3), body); add(new THREE.BoxGeometry(.15, .07, .02), glass, [0, .03, .151]); add(new THREE.BoxGeometry(.175, .03, .305), trim, [0, -.03, 0]); back = -.16; }
+  if (c.wings === "swept") for (const s of [-1, 1]) add(new THREE.BoxGeometry(.2, .012, .09), trim, [s * .12, -.01, -.06], [0, s * .55, 0]);
+  if (c.wings === "wide") add(new THREE.BoxGeometry(.52, .012, .1), trim, [0, -.01, -.05]);
+  if (c.wings === "ring") add(new THREE.TorusGeometry(.17, .014, 6, 28), trim, [0, 0, -.06]);
+  const flames = [];
+  const n = c.engines;
+  for (let i = 0; i < n; i++) {
+    const x = (i - (n - 1) / 2) * .07;
+    add(new THREE.CylinderGeometry(.028, .034, .06, 10), metal, [x, 0, back], [H, 0, 0]);
+    flames.push(add(new THREE.ConeGeometry(.026, .14, 10), fire, [x, 0, back - .1], [-H, 0, 0]));
+  }
+  ship.userData.flames = flames;
+}
+
+// ================= UI: panels =================
+const TOOLS = ["build", "design", "hangar"];
+const narrow = () => matchMedia("(max-width: 820px)").matches;
+let ui = load(UIKEY) || { info: true, notes: true, chat: true };
+function setPanel(name, open) {
+  if (open && TOOLS.includes(name)) for (const t of TOOLS) if (t !== name) ui[t] = false;
+  if (open && narrow()) for (const k in ui) if (k !== name && k !== "info") ui[k] = false;
+  ui[name] = open;
+  if (TOOLS.includes(name)) setTool(null);
+  renderPanels(); store(UIKEY, ui);
+}
+function renderPanels() {
+  document.querySelectorAll("[data-panel]").forEach((el) => {
+    const name = el.dataset.panel;
+    const flyOnly = name === "help", homeOnly = TOOLS.includes(name);
+    el.hidden = !ui[name] || (flyOnly && mode !== "fly") || (homeOnly && mode === "fly");
+  });
+  document.querySelectorAll("[data-open]").forEach((b) => b.classList.toggle("on", !!ui[b.dataset.open] && !$("p-" + b.dataset.open).hidden));
+  document.querySelectorAll("[data-open=build],[data-open=design],[data-open=hangar]").forEach((b) => (b.hidden = mode === "fly"));
+  $("helpBtn").hidden = mode !== "fly";
+  updateHint();
+}
+document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.close, false)));
+document.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.open, !ui[b.dataset.open])));
+
+// ================= UI: tools =================
+let tool = null;
+const HINTS = {
+  tower: "Click your planet to place a tower", sign: "Click your planet to place your sign", remove: "Click a tower or sign to remove it",
+  raise: "Drag on your planet to grow mountains", lower: "Drag on your planet to dig seas", smooth: "Drag to flatten bumps", paint: "Drag on your planet to paint",
+};
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll("[data-tool]").forEach((x) => x.classList.toggle("on", x.dataset.tool === tool));
+  updateHint();
+}
+function updateHint() {
+  $("hint").textContent = mode === "fly" ? "" : tool ? HINTS[tool] : ui.hangar ? "This is your ship. Change it, then press Fly it" : "Drag to spin · scroll to zoom · hover a planet to see its owner";
+}
+document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => setTool(tool === b.dataset.tool ? null : b.dataset.tool)));
+
+// ================= design panel =================
+const D = () => state.home.design;
+function choiceRow(el, options, current, onPick) {
+  el.innerHTML = "";
+  for (const [k, label] of Object.entries(options)) {
+    const b = document.createElement("button"); b.textContent = label; b.classList.toggle("on", String(k) === String(current));
+    b.addEventListener("click", () => onPick(k)); el.append(b);
+  }
+}
+function renderDesign() {
+  const d = D();
+  $("nameInput").value = state.home.name; $("planetName").textContent = state.home.name;
+  const t = $("templates"); t.innerHTML = "";
+  for (const [k, tp] of Object.entries(TEMPLATES)) {
+    const b = document.createElement("button");
+    b.innerHTML = `<span class="dot" style="background:radial-gradient(circle at 35% 35%, ${tp.pattern === "none" ? tp.low : tp.p1}, ${tp.sea})"></span>${tp.label}`;
+    b.classList.toggle("on", d.template === k);
+    b.addEventListener("click", () => { state.home.design = designFrom(k, d.seed); home.paint.fill(0); home.refreshBase(); designChanged(); });
+    t.append(b);
+  }
+  for (const k of ["sea", "shore", "low", "high", "peak", "p1", "p2", "atmo"]) $("c-" + k).value = d[k];
+  choiceRow($("patterns"), PATTERNS, d.pattern, (k) => { d.pattern = k; designChanged(); });
+  $("s-sea").value = d.seaLevel; $("s-mtn").value = d.mountains; $("s-bump").value = d.bumps;
+}
+function designChanged() { home.rebuild(); home.placeDecor(); renderDesign(); save(); }
+for (const k of ["sea", "shore", "low", "high", "peak", "p1", "p2", "atmo"]) $("c-" + k).addEventListener("input", (e) => { D()[k] = e.target.value; home.rebuild(); save(); });
+$("s-sea").addEventListener("input", (e) => { D().seaLevel = +e.target.value; home.rebuild(); home.placeDecor(); save(); });
+$("s-mtn").addEventListener("input", (e) => { D().mountains = +e.target.value; home.rebuild(); home.placeDecor(); save(); });
+$("s-bump").addEventListener("input", (e) => { D().bumps = +e.target.value; home.refreshBase(); home.rebuild(); home.placeDecor(); save(); });
+$("newShape").addEventListener("click", () => { D().seed = Math.floor(Math.random() * 1000); home.refreshBase(); designChanged(); });
+$("clearSculpt").addEventListener("click", () => { home.sculpt.fill(0); designChanged(); });
+$("clearPaint").addEventListener("click", () => { home.paint.fill(0); designChanged(); });
+$("nameInput").addEventListener("input", (e) => { state.home.name = e.target.value || "Unnamed"; $("planetName").textContent = state.home.name; save(); });
+
+// ================= hangar panel =================
+function renderHangar() {
+  const s = state.ship;
+  $("shipName").value = s.name;
+  const pick = (key) => (v) => { s[key] = key === "engines" ? +v : v; buildShip(); renderHangar(); save(); };
+  choiceRow($("hulls"), HULLS, s.hull, pick("hull"));
+  choiceRow($("wings"), WINGS, s.wings, pick("wings"));
+  choiceRow($("engines"), { 1: "One", 2: "Two", 3: "Three" }, s.engines, pick("engines"));
+  $("sc-body").value = s.body; $("sc-accent").value = s.accent; $("sc-flame").value = s.flame;
+}
+for (const [id, key] of [["sc-body", "body"], ["sc-accent", "accent"], ["sc-flame", "flame"]])
+  $(id).addEventListener("input", (e) => { state.ship[key] = e.target.value; buildShip(); save(); });
+$("shipName").addEventListener("input", (e) => { state.ship.name = e.target.value || "No Name"; save(); });
+$("goFly").addEventListener("click", () => startFlying());
+
+// ================= notes + chat =================
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function renderLists() {
   for (const [id, arr] of [["noteList", state.notes], ["chatList", state.chat]]) {
-    const el = document.getElementById(id);
-    el.innerHTML = arr.map(m => `<div class="msg"><time>${esc(m.t)}</time><b>${esc(m.who)}</b><br>${esc(m.text)}</div>`).join("");
+    const el = $(id);
+    el.innerHTML = arr.map((m) => `<div class="msg"><time>${esc(m.t)}</time><b>${esc(m.who)}</b><br>${esc(m.text)}</div>`).join("");
     el.scrollTop = el.scrollHeight;
   }
 }
-renderLists();
 const now = () => new Date().toTimeString().slice(0, 5);
 function hook(inputId, btnId, arr) {
-  const input = document.getElementById(inputId);
-  const send = () => { const t = input.value.trim(); if (!t) return; state[arr].push({ who: "gilad", text: t, t: now() }); input.value = ""; renderLists(); save(); };
-  document.getElementById(btnId).addEventListener("click", send);
-  input.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+  const input = $(inputId);
+  const send = () => { const t = input.value.trim(); if (!t) return; state[arr].push({ who: state.home.owner, text: t, t: now() }); input.value = ""; renderLists(); save(); };
+  $(btnId).addEventListener("click", send);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
 }
-hook("noteText", "noteSend", "notes");
-hook("chatText", "chatSend", "chat");
+hook("noteText", "noteSend", "notes"); hook("chatText", "chatSend", "chat");
 
-// ---------- loop ----------
+function setHp() { $("hpFill").style.width = state.home.hp + "%"; $("hpText").textContent = state.home.hp + "%"; }
+
+// ================= effects =================
+const fx = [], bolts = [];
+function boom(at, size = .1) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(size, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true }));
+  m.position.copy(at); scene.add(m); fx.push({ obj: m, life: .6, grow: true });
+}
+$("attack").addEventListener("click", () => {
+  if (state.home.hp <= 0) return;
+  const toCam = home.mesh.worldToLocal(camera.position.clone()).normalize();
+  const n = new THREE.Vector3().randomDirection().lerp(toCam, .7).normalize();
+  const hitW = home.mesh.localToWorld(n.clone().multiplyScalar(home.R));
+  const from = ship.position.clone();
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, 1, 6), new THREE.MeshBasicMaterial({ color: 0xff5a6e }));
+  beam.position.copy(from).add(hitW).multiplyScalar(.5); beam.scale.y = from.distanceTo(hitW);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), hitW.clone().sub(from).normalize());
+  scene.add(beam); fx.push({ obj: beam, life: .25 });
+  setTimeout(() => { home.hit(n); boom(hitW); }, 180);
+});
+$("reset").addEventListener("click", () => {
+  state = defaults(); buildWorld(); buildShip(); renderDesign(); renderHangar(); renderLists(); setHp(); save();
+});
+
+// ================= pointer: build, brush, hover =================
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+const BRUSHES = ["raise", "lower", "smooth", "paint"];
+let down = null, brushing = false;
+function aim(e) { mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera); }
+function brushAt(e) {
+  aim(e);
+  const hit = ray.intersectObject(home.mesh, false)[0];
+  if (!hit) return;
+  const n = home.mesh.worldToLocal(hit.point.clone()).normalize();
+  const c = new THREE.Color($("c-brush").value);
+  home.brush(n, tool, +$("s-brush").value, [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]);
+}
+canvas.addEventListener("pointerdown", (e) => {
+  down = [e.clientX, e.clientY];
+  if (mode === "home" && BRUSHES.includes(tool)) {
+    aim(e);
+    if (ray.intersectObject(home.mesh, false)[0]) { brushing = true; controls.enabled = false; canvas.setPointerCapture(e.pointerId); brushAt(e); }
+  }
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (brushing) return brushAt(e);
+  hover(e);
+});
+canvas.addEventListener("pointerup", (e) => {
+  if (brushing) { brushing = false; controls.enabled = mode === "home"; save(); return; }
+  if (mode !== "home" || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !tool || BRUSHES.includes(tool)) return;
+  aim(e);
+  const s = state.home;
+  if (tool === "remove") {
+    const hit = ray.intersectObject(home.decor, true)[0];
+    if (!hit) return;
+    let o = hit.object; while (o.parent !== home.decor) o = o.parent;
+    s.decor = s.decor.filter((d) => d !== o.userData.decor);
+  } else {
+    const hit = ray.intersectObject(home.mesh, false)[0];
+    if (!hit) return;
+    const n = home.mesh.worldToLocal(hit.point.clone()).normalize();
+    const d = { type: tool, n: n.toArray().map((x) => +x.toFixed(4)) };
+    if (tool === "sign") {
+      d.text = ($("signText").value || "HI").toUpperCase();
+      d.face = home.mesh.worldToLocal(camera.position.clone()).normalize().toArray().map((x) => +x.toFixed(4));
+    }
+    s.decor.push(d);
+  }
+  home.rebuildDecor(); save();
+});
+const tip = $("tip");
+function hover(e) {
+  if (e.pointerType === "touch") return;
+  aim(e);
+  const hit = ray.intersectObjects(planets.map((p) => p.mesh), false)[0];
+  if (!hit) { tip.hidden = true; return; }
+  const p = hit.object.userData.planet.data;
+  tip.innerHTML = `${esc(p.name)} · owner <b>${esc(p.owner)}</b> · ${p.hp > 0 ? p.hp + "% hull" : "destroyed"}`;
+  tip.style.left = e.clientX + "px"; tip.style.top = e.clientY + "px"; tip.hidden = false;
+}
+canvas.addEventListener("pointerleave", () => (tip.hidden = true));
+
+// floating name tags while flying
+const tagsEl = $("tags");
+function buildTags() {
+  tagsEl.innerHTML = "";
+  for (const p of planets) { const d = document.createElement("div"); d.className = "tag"; d.hidden = true; tagsEl.append(d); p.tag = d; }
+}
+
+// ================= flying =================
+let mode = "home";
+const keys = new Set(), vel = new THREE.Vector3();
+let cooldown = 0, orbitT = 0;
+function startFlying() {
+  if (mode === "fly") return;
+  mode = "fly"; document.body.classList.add("flying");
+  controls.enabled = false; setTool(null); tip.hidden = true;
+  ship.scale.setScalar(1);
+  placeOrbit(orbitT);
+  vel.set(0, 0, 0);
+  $("flyBtn").textContent = "Land"; $("flyHud").hidden = false; $("crosshair").hidden = false;
+  $("hudShip").textContent = state.ship.name;
+  if (ui.help === undefined) ui.help = true;
+  renderPanels();
+}
+function land() {
+  if (mode !== "fly") return;
+  mode = "home"; document.body.classList.remove("flying");
+  keys.clear();
+  camera.up.set(0, 1, 0); camera.position.set(0, 1.2, 6.5); controls.target.set(0, 0, 0); controls.enabled = true;
+  $("flyBtn").textContent = "Fly"; $("flyHud").hidden = true; $("crosshair").hidden = true;
+  for (const p of planets) p.tag.hidden = true;
+  renderPanels();
+}
+$("flyBtn").addEventListener("click", () => (mode === "fly" ? land() : startFlying()));
+const typing = (e) => e.target.tagName === "INPUT" || e.target.tagName === "SELECT";
+addEventListener("keydown", (e) => {
+  if (typing(e)) return;
+  if (mode === "fly") {
+    if (e.code === "Escape") return land();
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+    keys.add(e.code);
+  }
+});
+addEventListener("keyup", (e) => keys.delete(e.code));
+addEventListener("blur", () => keys.clear());
+document.querySelectorAll("#pad button").forEach((b) => {
+  b.addEventListener("pointerdown", (e) => { e.preventDefault(); keys.add(b.dataset.k); });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, () => keys.delete(b.dataset.k));
+});
+
+function shoot() {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(ship.quaternion);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .4, 6), new THREE.MeshBasicMaterial({ color: 0xff5a6e }));
+  m.position.copy(ship.position).addScaledVector(fwd, .3);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fwd);
+  scene.add(m);
+  bolts.push({ obj: m, v: fwd.multiplyScalar(45).add(vel), life: 2.5 });
+}
+function placeOrbit(a) {
+  const r = 2.8;
+  ship.position.set(Math.cos(a) * r, Math.sin(a * .7) * .5 + .4, Math.sin(a) * r);
+  ship.lookAt(Math.cos(a + .1) * r, Math.sin((a + .1) * .7) * .5 + .4, Math.sin(a + .1) * r);
+}
+function flyStep(dt) {
+  const k = (c) => keys.has(c);
+  const boost = k("ShiftLeft") || k("ShiftRight");
+  const yaw = (k("KeyA") || k("ArrowLeft") ? 1 : 0) - (k("KeyD") || k("ArrowRight") ? 1 : 0);
+  const pitch = (k("ArrowDown") || k("KeyF") ? 1 : 0) - (k("ArrowUp") || k("KeyR") ? 1 : 0);
+  const roll = (k("KeyE") ? 1 : 0) - (k("KeyQ") ? 1 : 0);
+  ship.rotateY(yaw * dt * 1.7); ship.rotateX(pitch * dt * 1.4); ship.rotateZ(roll * dt * 2.2);
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(ship.quaternion);
+  const thrust = k("KeyW") ? (boost ? 22 : 8) : 0;
+  vel.addScaledVector(fwd, thrust * dt);
+  if (k("KeyS")) vel.multiplyScalar(1 - 3 * dt);
+  vel.multiplyScalar(1 - .6 * dt);
+  const max = boost ? 30 : 12; if (vel.length() > max) vel.setLength(max);
+  ship.position.addScaledVector(vel, dt);
+  for (const p of planets) { // bump off planets instead of flying through
+    const d = ship.position.clone().sub(p.group.position), min = p.R * 1.3 + .2;
+    if (d.length() < min) { d.setLength(min); ship.position.copy(p.group.position).add(d); const nrm = d.normalize(); vel.addScaledVector(nrm, -vel.dot(nrm) * 1.5); }
+  }
+  cooldown -= dt;
+  if (k("Space") && cooldown <= 0) { shoot(); cooldown = .18; }
+  for (const f of ship.userData.flames) f.scale.set(1, (k("KeyW") ? (boost ? 2.4 : 1.6) : .6) + Math.random() * .3, 1);
+  // chase camera
+  const want = ship.localToWorld(new THREE.Vector3(0, .32, -1.15));
+  const ease = 1 - Math.exp(-dt * 6);
+  camera.position.lerp(want, ease);
+  camera.up.lerp(new THREE.Vector3(0, 1, 0).applyQuaternion(ship.quaternion), ease).normalize();
+  camera.lookAt(ship.localToWorld(new THREE.Vector3(0, .1, 1.6)));
+  $("hudSpeed").textContent = (vel.length() * 100).toFixed(0);
+  $("hudHome").textContent = (ship.position.length() * 1000).toFixed(0);
+  // planet tags
+  const v = new THREE.Vector3();
+  for (const p of planets) {
+    v.copy(p.group.position); v.y += p.R * 1.25; v.project(camera);
+    const dist = ship.position.distanceTo(p.group.position);
+    // planets off screen get pinned to the edge so you can find them
+    const behind = v.z > 1; if (behind) { v.x = -v.x; v.y = -v.y; }
+    const edge = behind || Math.abs(v.x) > .95 || Math.abs(v.y) > .9;
+    if (edge) { const m = Math.max(Math.abs(v.x) / .92, Math.abs(v.y) / .82, 1e-3); v.x /= m; v.y /= m; }
+    p.tag.hidden = false; p.tag.classList.toggle("edge", edge);
+    p.tag.style.left = (v.x + 1) / 2 * innerWidth + "px"; p.tag.style.top = (1 - v.y) / 2 * innerHeight + "px";
+    p.tag.innerHTML = `${esc(p.data.name)}<br><b>${esc(p.data.owner)}</b> · ${(dist * 1000).toFixed(0)} km`;
+  }
+}
+function boltStep(dt) {
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i]; b.life -= dt; b.obj.position.addScaledVector(b.v, dt);
+    let gone = b.life <= 0;
+    for (const p of planets) {
+      if (b.obj.position.distanceTo(p.group.position) < p.R * 1.05) {
+        if (p.data.hp > 0) p.hit(p.mesh.worldToLocal(b.obj.position.clone()).normalize());
+        boom(b.obj.position, .15); gone = true; break;
+      }
+    }
+    if (gone) { scene.remove(b.obj); bolts.splice(i, 1); }
+  }
+}
+
+// ================= loop =================
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clock = new THREE.Clock();
-renderer.setAnimationLoop(() => {
-  const dt = clock.getDelta(), t = clock.elapsedTime;
-  if (!reduce) planet.rotation.y += dt * .05;
-  const a = t * .35, orbit = 2.7;
-  ship.position.set(Math.cos(a) * orbit, Math.sin(a * .7) * .5 + .4, Math.sin(a) * orbit);
-  ship.lookAt(Math.cos(a + .1) * orbit, Math.sin((a + .1) * .7) * .5 + .4, Math.sin(a + .1) * orbit);
-  ship.rotateY(Math.PI / 2);
-  ship.userData.flame.scale.y = .8 + Math.sin(t * 30) * .2;
-  decorGroup.traverse(o => { if (o.userData.blink !== undefined) o.visible = Math.sin(t * 3 + o.userData.blink) > -.3; });
+function frame() {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  const still = reduce || brushing || (tool && mode === "home") || ui.design;
+  if (!still) home.mesh.rotation.y += dt * .05;
+  for (const p of planets) if (p !== home) p.mesh.rotation.y += dt * .04;
+  if (mode === "fly") flyStep(dt);
+  else {
+    if (ui.hangar) { // show the ship up close in front of the camera
+      const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+      const right = new THREE.Vector3().crossVectors(dir, camera.up).normalize();
+      ship.position.copy(camera.position).addScaledVector(dir, 2.4).addScaledVector(right, narrow() ? 0 : .85).addScaledVector(camera.up, narrow() ? .55 : 0);
+      ship.rotation.set(.35, t * .6, 0); ship.scale.setScalar(1.1);
+    } else {
+      orbitT += dt * .35; placeOrbit(orbitT); ship.scale.setScalar(1);
+    }
+    for (const f of ship.userData.flames) f.scale.set(1, .8 + Math.sin(t * 30) * .2, 1);
+    controls.update();
+  }
+  boltStep(dt);
+  for (const p of planets) p.decor.traverse((o) => { if (o.userData.blink !== undefined) o.visible = Math.sin(t * 3 + o.userData.blink) > -.3; });
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.life -= dt;
     if (f.grow) { f.obj.scale.multiplyScalar(1 + dt * 6); f.obj.material.opacity = Math.max(0, f.life / .6); }
     if (f.life <= 0) { scene.remove(f.obj); fx.splice(i, 1); }
   }
-  controls.update();
   renderer.render(scene, camera);
-});
+}
+
+buildWorld(); buildShip(); renderDesign(); renderHangar(); renderLists(); setHp(); renderPanels();
+renderer.setAnimationLoop(frame);
 </script>
 </body>
 </html>
