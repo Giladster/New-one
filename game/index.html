@@ -546,7 +546,7 @@ class Particles {
     this.mat = new THREE.ShaderMaterial({
       uniforms: { scale: { value: 400 } }, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
       vertexShader: `attribute vec3 pcol; attribute float psize; attribute float palpha; uniform float scale; varying vec3 vC; varying float vA;
-        void main(){ vC=pcol; vA=palpha; vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; gl_PointSize=min(512., psize*scale/max(.05,-mv.z)); }`,
+        void main(){ vC=pcol; vec4 mv=modelViewMatrix*vec4(position,1.); vA=palpha*smoothstep(.2,2.5,-mv.z); gl_Position=projectionMatrix*mv; gl_PointSize=min(512., psize*scale/max(.05,-mv.z)); }`,
       fragmentShader: additive
         ? `varying vec3 vC; varying float vA; void main(){ float r=length(gl_PointCoord-.5); float a=smoothstep(.5,.0,r); gl_FragColor=vec4(vC*a*vA,1.); }`
         : `varying vec3 vC; varying float vA; void main(){ float r=length(gl_PointCoord-.5); float a=smoothstep(.5,.1,r); gl_FragColor=vec4(vC,a*vA*.75); }`,
@@ -981,18 +981,18 @@ function megaBoom(planet, center, R) {
   const far = camera.position.distanceTo(center);
   sfx.mega(); flashScreen("#fff3d6", far < 60 ? .85 : .35);
   shake = Math.max(shake, Math.max(.12, .9 * (1 - far / 80)));
-  slow = .3; addFx(2.2, () => {}, () => (slow = 1));
+  slow = .3; setTimeout(() => (slow = 1), 1600);
   toast(`💥 ${esc(planet.data.name)} was destroyed! Nobody is left.`, "boom", 5000);
+  if (mode === "fly" && ship.position.distanceTo(center) < R * 25) vel.addScaledVector(ship.position.clone().sub(center).normalize(), 45); // the blast pushes you back
   const v = new THREE.Vector3();
   const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: new THREE.Color(4, 3.4, 2.6), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
   flash.position.copy(center); scene.add(flash);
-  addFx(1.2, (k) => { flash.scale.setScalar(R * (2 + k * 22)); flash.material.opacity = (1 - k) ** 3; }, () => scene.remove(flash));
+  addFx(1.2, (k) => { flash.scale.setScalar(R * (2 + k * 12)); flash.material.opacity = (1 - k) ** 3; }, () => scene.remove(flash));
   const light = new THREE.PointLight(0xffb070, 3000 * R, R * 120, 2); light.position.copy(center); scene.add(light);
   addFx(3, (k) => (light.intensity = 3000 * R * (1 - k) ** 3), () => scene.remove(light));
   const tilt = new THREE.Vector3(rnd(-.3, .3), 1, rnd(-.3, .3)).normalize();
   ring(center, tilt, R * 30, 3.2, new THREE.Color(2.5, 1.6, 1.1), .06);
   ring(center, tilt.clone().applyAxisAngle(new THREE.Vector3(1, 0, 0), .5), R * 22, 2.6, new THREE.Color(1.2, 1.6, 3), .08);
-  ring(center, camera.position.clone().sub(center).normalize(), R * 14, 1.6, new THREE.Color(3, 2.2, 1.4), .2);
   const warm = C(0xffd890, 1.3), mid = C(0xff7a2a, .9), deep = C(0xc02a10, .5);
   for (let i = 0; i < 1800; i++) {
     v.randomDirection(); const fast = Math.random() < .25, sp = fast ? rnd(10, 24) : rnd(1.5, 8);
@@ -1813,7 +1813,7 @@ function frame() {
     p.decor.traverse((o) => { if (o.userData.blink !== undefined) o.visible = Math.sin(t * 3 + o.userData.blink) > -.3; });
   }
   if (mode === "fly") flyStep(dt);
-  else if (mode === "warp") warpStep(dt);
+  else if (mode === "warp") warpStep(realDt);
   else {
     if (ui.hangar) { // show the ship up close next to the planet
       const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
