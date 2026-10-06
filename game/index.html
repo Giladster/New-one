@@ -1474,11 +1474,12 @@ const CARBON_TEX = (() => { // woven carbon look
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 6); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
 function fuselage(len, rad, prof, segs = 32) { // a smooth body turned on a lathe, nose toward +z
-  const pts = []; for (let i = 0; i <= 28; i++) { const t = i / 28; pts.push(new THREE.Vector2(Math.max(.0008, rad * prof(t)), (t - .5) * len)); }
+  const pts = []; for (let i = 0; i <= 28; i++) { const t = i / 28; const r = prof(Math.min(1, Math.max(0, t))); pts.push(new THREE.Vector2(Math.max(.0008, rad * (Number.isFinite(r) ? r : 0)), (t - .5) * len)); }
+  pts.unshift(new THREE.Vector2(.0008, -len / 2)); pts.push(new THREE.Vector2(.0008, len / 2)); // closed at both ends
   return new THREE.LatheGeometry(pts, segs).rotateX(Math.PI / 2);
 }
-const POINTY = (t) => (t < .7 ? .72 + .28 * Math.sin(t / .7 * Math.PI / 2) : Math.pow(Math.cos((t - .7) / .3 * Math.PI / 2), .75));
-const ROUNDED = (t) => Math.pow(Math.sin(Math.PI * (.08 + t * .84)), .55);
+const POINTY = (t) => (t < .7 ? .72 + .28 * Math.sin(t / .7 * Math.PI / 2) : Math.pow(Math.max(0, Math.cos((t - .7) / .3 * Math.PI / 2)), .75));
+const ROUNDED = (t) => Math.pow(Math.max(0, Math.sin(Math.PI * (.08 + t * .84))), .55);
 function slab(shapeOrPts, depth = .014, bevel = .006) { // a flat bevelled plate from a 2D outline (x = side, y = forward)
   const sh = Array.isArray(shapeOrPts) ? new THREE.Shape(shapeOrPts.map(([x, z]) => new THREE.Vector2(x, z))) : shapeOrPts;
   const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 16 });
