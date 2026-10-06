@@ -1,0 +1,12 @@
+# Render Blueprint: New → Blueprint → pick this repo. Creates the free game server.
+services:
+  - type: web
+    name: tiny-planets
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL # paste your free database link here later (Neon or another Postgres)
+        sync: false

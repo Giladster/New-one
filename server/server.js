@@ -1,0 +1,193 @@
+// Tiny Planets game server.
+// Serves the game page, keeps the shared world (planets, players, chat, notes) and passes live
+// updates between players over a WebSocket. Run: npm install && npm start  (then open http://localhost:3000)
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { WebSocketServer } from "ws";
+import { createStore } from "./store.js";
+
+const PORT = process.env.PORT || 3000;
+const GAME_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "game");
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml", ".json": "application/json" };
+
+// Same numbers as the game, so everyone agrees on how much a hit hurts.
+const DAMAGE = { laser: { hp: .5, pop: .004 }, missile: { hp: 5, pop: .045 }, bomb: { hp: 14, pop: .14 } };
+const KINDS = ["laser", "missile", "bomb", "atom"];
+const MAX_STAMPS = 600, MAX_MAIL = 60, MAX_CHAT = 120;
+const PLANET_KEYS = ["name", "design", "decor", "sculpt", "paint", "R"]; // what an owner may change
+
+const id = (p) => p + "_" + crypto.randomBytes(6).toString("hex");
+const text = (s, n) => String(s ?? "").replace(/[\u0000-\u001f]/g, "").slice(0, n);
+const clockStr = () => new Date().toISOString().slice(11, 16);
+
+// ---------------- world ----------------
+const store = await createStore();
+const world = { planets: {}, players: {}, chat: [] };
+const dirty = new Set();
+{
+  const raw = await store.load();
+  for (const [k, v] of Object.entries(raw)) {
+    if (k.startsWith("planet:")) world.planets[v.id] = v;
+    else if (k.startsWith("player:")) world.players[v.id] = v;
+    else if (k === "chat") world.chat = v;
+  }
+  console.log(`World loaded from ${store.kind}: ${Object.keys(world.planets).length} planets, ${Object.keys(world.players).length} players`);
+}
+const markPlanet = (p) => dirty.add("planet:" + p.id);
+const markPlayer = (p) => dirty.add("player:" + p.id);
+async function flush() {
+  if (!dirty.size) return;
+  const keys = [...dirty]; dirty.clear();
+  const entries = keys.map((k) => {
+    const [kind, kid] = k.split(":");
+    if (kind === "planet") return [k, world.planets[kid] ?? null];
+    if (kind === "player") { const p = world.players[kid]; return [k, p ?? null]; }
+    return [k, world.chat];
+  });
+  try { await store.save(entries); } catch (e) { console.error("save failed, will retry", e.message); keys.forEach((k) => dirty.add(k)); }
+}
+setInterval(flush, 8000);
+for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, async () => { await flush(); process.exit(0); });
+
+function placeNewPlanet() { // new players get a spot on a spiral outside the starting planets
+  const n = Object.values(world.planets).filter((p) => p.ownerId).length;
+  const a = n * 2.399, r = 380 + 70 * Math.floor(n / 6);
+  return [Math.round(Math.cos(a) * r), Math.round((Math.random() - .5) * 80), Math.round(Math.sin(a) * r)];
+}
+function uniqueName(name) {
+  const taken = new Set(Object.values(world.planets).map((p) => p.name.toLowerCase()));
+  let out = name, i = 2;
+  while (taken.has(out.toLowerCase())) out = `${name} ${i++}`;
+  return out;
+}
+const publicPlayer = (p) => ({ id: p.id, name: p.name, planetId: p.planetId, ship: p.ship });
+const snapshot = () => ({ planets: Object.values(world.planets), players: Object.values(world.players).map(publicPlayer), chat: world.chat });
+function stat(p) { return { t: "stat", id: p.id, hp: p.hp, pop: p.pop, dead: !!p.dead, troops: p.troops || 0 }; }
+function applyHit(p, kind) {
+  if (p.dead) return;
+  if (kind === "atom") p.hp = 0;
+  else { const d = DAMAGE[kind]; if (!d) return; p.hp = Math.max(0, p.hp - d.hp); p.pop = Math.max(0, p.pop - p.maxPop * d.pop); }
+  if (p.hp <= 0 || p.pop <= 0) { p.dead = true; p.hp = 0; p.pop = 0; p.troops = 0; p.diedAt = Date.now(); }
+}
+
+// ---------------- web server ----------------
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, "http://x");
+  if (url.pathname === "/health") { res.writeHead(200, { "content-type": "text/plain" }); return res.end("ok"); }
+  if (url.pathname === "/status") {
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ online: clients.size, planets: Object.keys(world.planets).length, players: Object.keys(world.players).length, storage: store.kind }));
+  }
+  let file = path.normalize(path.join(GAME_DIR, url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname)));
+  if (!file.startsWith(GAME_DIR)) { res.writeHead(403); return res.end(); }
+  fs.readFile(file, (err, data) => {
+    if (err) { res.writeHead(404); return res.end("not found"); }
+    res.writeHead(200, { "content-type": MIME[path.extname(file)] || "application/octet-stream", "cache-control": "no-cache" });
+    res.end(data);
+  });
+});
+
+// ---------------- live connections ----------------
+const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 3 * 1024 * 1024 });
+const clients = new Map(); // socket -> { player, ship }
+const send = (ws, msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
+const broadcast = (msg, except) => { const s = JSON.stringify(msg); for (const ws of clients.keys()) if (ws !== except && ws.readyState === 1) ws.send(s); };
+const socketOf = (playerId) => { for (const [ws, c] of clients) if (c.player && c.player.id === playerId) return ws; return null; };
+
+wss.on("connection", (ws) => {
+  clients.set(ws, { player: null, ship: null, rate: 0 });
+  ws.on("message", (buf) => {
+    let m; try { m = JSON.parse(buf); } catch { return; }
+    const c = clients.get(ws); if (!c) return;
+    try { handle(ws, c, m); } catch (e) { console.error("bad message", m && m.t, e.message); }
+  });
+  ws.on("close", () => {
+    const c = clients.get(ws); clients.delete(ws);
+    if (c && c.player) { c.player.lastSeen = Date.now(); markPlayer(c.player); broadcast({ t: "left", pid: c.player.id }); }
+  });
+});
+
+function handle(ws, c, m) {
+  const me = c.player, mine = me && world.planets[me.planetId];
+  switch (m.t) {
+    case "hello": { // returning players send their secret token
+      const p = Object.values(world.players).find((x) => x.token && x.token === m.token);
+      if (p && world.planets[p.planetId]) { c.player = p; p.lastSeen = Date.now(); markPlayer(p); }
+      send(ws, { t: "welcome", you: c.player ? publicPlayer(c.player) : null, world: snapshot(), needsSeed: !Object.values(world.planets).some((p) => !p.ownerId) });
+      break;
+    }
+    case "seed": { // the very first visitor fills the empty galaxy with the starting planets
+      if (Object.values(world.planets).some((p) => !p.ownerId) || !Array.isArray(m.planets)) return;
+      for (const raw of m.planets.slice(0, 20)) {
+        const p = { ...raw, id: id("p"), ownerId: null, stamps: [], mail: Array.isArray(raw.mail) ? raw.mail.slice(0, MAX_MAIL) : [] };
+        delete p.dmg; world.planets[p.id] = p; markPlanet(p);
+      }
+      broadcast({ t: "world", world: snapshot() });
+      break;
+    }
+    case "join": { // a new player creates their planet
+      if (me) return;
+      const name = text(m.name, 20).trim() || "Space Cadet", planetName = uniqueName(text(m.planetName, 20).trim() || name + "'s Planet");
+      const src = m.planet || {};
+      const planet = {
+        id: id("p"), ownerId: null, name: planetName, owner: name, R: 1.6, pos: placeNewPlanet(), hp: 100, pop: 8000, maxPop: 8000, dead: false, troops: 0,
+        design: src.design || {}, decor: Array.isArray(src.decor) ? src.decor.slice(0, 200) : [], sculpt: null, paint: null, mail: [], stamps: [],
+      };
+      const player = { id: id("u"), token: crypto.randomBytes(18).toString("hex"), name, planetId: planet.id, ship: m.ship || null, created: Date.now(), lastSeen: Date.now() };
+      planet.ownerId = player.id;
+      world.planets[planet.id] = planet; world.players[player.id] = player; c.player = player;
+      markPlanet(planet); markPlayer(player);
+      send(ws, { t: "joined", you: publicPlayer(player), token: player.token, world: snapshot() });
+      broadcast({ t: "planetAdd", planet, player: publicPlayer(player) }, ws);
+      broadcast({ t: "chat", msg: { who: "📡", text: `${name} joined the galaxy with ${planetName}!`, t: clockStr() } });
+      break;
+    }
+    case "planet": { // the owner changed their planet
+      if (!mine || !m.patch) return;
+      const patch = {};
+      for (const k of PLANET_KEYS) if (k in m.patch) patch[k] = k === "name" ? uniqueNameFor(mine, text(m.patch.name, 20)) : m.patch[k];
+      Object.assign(mine, patch); markPlanet(mine);
+      broadcast({ t: "planetPatch", id: mine.id, patch }, ws);
+      break;
+    }
+    case "ship": { if (!me) return; me.ship = m.ship; markPlayer(me); broadcast({ t: "shipCfg", pid: me.id, ship: m.ship }, ws); break; }
+    case "pos": { if (!me) return; c.ship = { pid: me.id, name: me.name, p: m.p, q: m.q, f: !!m.f, hp: m.hp }; break; }
+    case "hit": { // someone hit a planet: everyone sees the crater and the new health
+      const p = world.planets[m.id]; if (!p || p.dead || !KINDS.includes(m.kind) || !Array.isArray(m.n)) return;
+      if (m.kind !== "laser" || Math.random() < .4) { p.stamps.push([...m.n.map((x) => +(+x).toFixed(3)), KINDS.indexOf(m.kind)]); if (p.stamps.length > MAX_STAMPS) p.stamps.splice(0, p.stamps.length - MAX_STAMPS); }
+      applyHit(p, m.kind); p.lastAttack = Date.now(); markPlanet(p);
+      broadcast({ t: "hit", id: p.id, n: m.n, kind: m.kind, by: me ? me.id : null }, ws);
+      broadcast(stat(p));
+      if (p.dead) broadcast({ t: "chat", msg: { who: "💥", text: `${p.name} was destroyed${me ? " by " + me.name : ""}!`, t: clockStr() } });
+      break;
+    }
+    case "troops": { const p = world.planets[m.id]; if (!p || p.dead) return; p.troops = (p.troops || 0) + Math.min(10, m.count | 0); markPlanet(p); broadcast({ t: "troops", id: p.id, n: m.n, count: m.count | 0 }, ws); broadcast(stat(p)); break; }
+    case "mail": { const p = world.planets[m.id]; if (!p || !me) return; const note = { who: me.name, text: text(m.text, 160), t: clockStr() }; p.mail.push(note); if (p.mail.length > MAX_MAIL) p.mail.shift(); markPlanet(p); broadcast({ t: "mail", id: p.id, note }); break; }
+    case "chat": { if (!me) return; const msg = { who: me.name, text: text(m.text, 200), t: clockStr() }; world.chat.push(msg); if (world.chat.length > MAX_CHAT) world.chat.shift(); dirty.add("chat"); broadcast({ t: "chat", msg }); break; }
+    case "rebuild": { if (!mine) return; Object.assign(mine, { dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
+    case "resetPlanet": { if (!mine || !m.planet) return; Object.assign(mine, { design: m.planet.design, decor: m.planet.decor, sculpt: null, paint: null, dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
+    case "shot": { if (!me) return; broadcast({ t: "shot", pid: me.id, kind: m.kind, from: m.from, to: m.to }, ws); break; }
+    case "pvp": { if (!me) return; const target = socketOf(m.target); if (target) send(target, { t: "hurt", dmg: Math.min(60, +m.dmg || 0), by: me.name }); break; }
+  }
+}
+function uniqueNameFor(planet, name) { const n = name.trim() || planet.name; return n.toLowerCase() === planet.name.toLowerCase() ? n : uniqueName(n); }
+
+// ships of everyone online, 10 times a second
+setInterval(() => {
+  const ships = [...clients.values()].map((c) => c.ship).filter(Boolean);
+  if (ships.length) broadcast({ t: "ships", ships });
+}, 100);
+// troops slowly take over planets, even when nobody is looking
+setInterval(() => {
+  for (const p of Object.values(world.planets)) {
+    if (p.dead || !p.troops) continue;
+    p.pop = Math.max(0, p.pop - p.maxPop * .0012 * p.troops * 2);
+    if (p.pop <= 0) applyHit(p, "atom");
+    markPlanet(p); broadcast(stat(p));
+  }
+}, 2000);
+
+server.listen(PORT, () => console.log(`Tiny Planets is running on http://localhost:${PORT}`));

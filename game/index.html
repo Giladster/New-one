@@ -91,6 +91,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 #dock { left: 16px; right: 16px; margin-inline: auto; width: max-content; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 32px); }
 #dock .sep { width: 1px; background: var(--line); margin: 2px; }
+#netPill { align-self: center; font: 12px var(--mono); color: var(--good); padding: 0 6px; white-space: nowrap; }
+#netPill.off { color: var(--accent); }
+#p-join { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 32px)); z-index: 6; max-height: calc(100% - 32px); overflow-y: auto; }
+#p-join h2 { margin: 0; font: 700 26px var(--display); }
+body.joining .hud:not(#p-join), body.joining .hint { display: none !important; }
 #zoom { right: 16px; top: 50%; transform: translateY(-50%); padding: 6px; display: grid; gap: 6px; }
 #zoom button { width: 42px; height: 42px; padding: 0; font-size: 22px; line-height: 1; }
 .filebtn { font: 500 13px var(--display); letter-spacing: .04em; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
@@ -144,6 +149,20 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 </head>
 <body>
 <canvas id="scene"></canvas>
+
+<section id="p-join" class="hud panel" hidden>
+  <h2>Tiny Planets</h2>
+  <div id="joinWait" class="small">Connecting to the galaxy… (a sleeping free server can take up to a minute to wake up)</div>
+  <div id="joinForm" class="group" hidden>
+    <span class="small">This galaxy is live. Other players can visit your planet, leave you notes, and attack it, even while you are away.</span>
+    <input id="joinName" type="text" maxlength="20" placeholder="Your player name" aria-label="Your player name">
+    <input id="joinPlanet" type="text" maxlength="20" placeholder="Your planet's name" aria-label="Your planet's name">
+    <span class="label">Starting look</span>
+    <div class="templates" id="joinTemplates"></div>
+    <button class="go" id="joinGo">Create my planet</button>
+    <span class="small" id="joinMsg"></span>
+  </div>
+</section>
 
 <section id="p-info" class="hud panel sidebar" data-panel="info" hidden>
   <div class="ph"><span class="label">Your planet</span><button class="x" data-close="view" aria-label="Close planet info">×</button></div>
@@ -314,6 +333,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <button data-open="help" data-fly>Controls</button>
   <button id="soundBtn">Sound</button>
   <button id="gfxBtn">Graphics</button>
+  <span id="netPill" hidden>● connecting…</span>
   <span class="sep" data-home></span>
   <button class="go" id="flyBtn" data-home>Fly</button>
 </nav>
@@ -458,7 +478,7 @@ let ui = load(UIKEY) || { mail: true, chat: false, help: false, muted: false };
 if (ui.mail && ui.chat) ui.chat = false; // only one menu open at a time
 for (const k of ["info", "design", "build", "hangar", "map"]) ui[k] = false; // every visit starts in the main view
 let saveTimer = 0;
-const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { for (const p of planets) p.pack(); store(KEY, state); }, 400); };
+const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { if (net.me) return syncOnline(); for (const p of planets) p.pack(); store(KEY, state); }, 400); };
 const saveUi = () => store(UIKEY, ui);
 
 // ================= sound (all made in the browser, no files) =================
@@ -1099,7 +1119,7 @@ const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matr
 class Planet {
   constructor(data, detail, isHome) {
     this.data = data; this.isHome = isHome;
-    this.group = new THREE.Group(); this.group.position.copy(V(data.pos)); scene.add(this.group);
+    this.group = new THREE.Group(); this.group.position.copy(V(data.pos)).sub(WORLD_OFFSET); scene.add(this.group);
     this.spin = new THREE.Group(); this.group.add(this.spin);
     let g = new THREE.IcosahedronGeometry(1, detail); g.deleteAttribute("normal"); g.deleteAttribute("uv"); g = mergeVertices(g);
     this.geo = g; const pos = g.attributes.position; const U = this.U = pos.count;
@@ -1111,6 +1131,7 @@ class Planet {
     const sc = unpack(data.sculpt, U * 4); if (sc) this.sculpt = new Float32Array(sc.buffer);
     this.paint = unpack(data.paint, U * 4) || this.paint;
     this.dmg = unpack(data.dmg, U) || this.dmg;
+    if (Array.isArray(data.stamps)) for (const st of data.stamps) this.stamp(V(st.slice(0, 3)).normalize(), ["laser", "missile", "bomb", "bomb"][st[3]] || "laser");
     g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(U * 3), 3));
     g.setAttribute("glow", new THREE.BufferAttribute(new Float32Array(U), 1));
     this.mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .82, metalness: 0, envMapIntensity: .35 });
@@ -1245,8 +1266,7 @@ class Planet {
     }
     this.rebuild(); this.placeDecor();
   }
-  hitAt(n, kind) {
-    if (!this.alive) return;
+  stamp(n, kind) { // burn a crater into the ground
     const cfg = DAMAGE[kind], cosL = Math.cos(cfg.size);
     for (let u = 0; u < this.U; u++) {
       const dt = this.dirs[u * 3] * n.x + this.dirs[u * 3 + 1] * n.y + this.dirs[u * 3 + 2] * n.z;
@@ -1254,6 +1274,12 @@ class Planet {
       const f = (dt - cosL) / (1 - cosL);
       this.dmg[u] = Math.min(255, this.dmg[u] + Math.round(255 * cfg.dmg * Math.min(1, f * 1.6)));
     }
+  }
+  hitAt(n, kind, remote = false) { // remote = another player's shot, told to us by the server
+    if (!this.alive) return;
+    const cfg = DAMAGE[kind];
+    if (!remote && net.me && this.data.id) net.send({ t: "hit", id: this.data.id, n: n.toArray().map(r3), kind });
+    this.stamp(n, kind);
     this.dirty = true;
     const before = this.data.decor.length;
     this.data.decor = this.data.decor.filter((d) => d.type === "mailbox" || V(d.n).normalize().distanceTo(n) > cfg.size * 1.1);
@@ -1264,7 +1290,7 @@ class Planet {
     this.data.pop = Math.max(0, this.data.pop - this.data.maxPop * cfg.pop - flung * this.perPerson * .3);
     if (kind !== "laser") breakOff(this, n, kind === "bomb" ? 16 : 7, cfg.size);
     for (const m of [75, 50, 25]) if (hpBefore > m && this.data.hp <= m && this.data.hp > 0) this.collapse(m);
-    this.lastHit = clock(); this.cheerUntil = 0; this.playerHitAt = clock();
+    this.lastHit = clock(); this.cheerUntil = 0; if (!remote) this.playerHitAt = clock();
     afterDamage(this);
   }
   get perPerson() { return this.data.maxPop / MAXPEOPLE; }
@@ -1340,7 +1366,7 @@ class Planet {
     emit(hurt * hurt * 70, () => { const s = spot(); fire.spawn(s.at, s.out.multiplyScalar(this.R * rnd(.05, .35)), rnd(.6, 1.6), this.R * rnd(.015, .04), C(0xffb050, 2.4), C(0x601000, .4), .3, .4); });
     if (hurt > .55 && Math.random() < dt * hurt * 1.5) { const s = spot(); for (let i = 0; i < 30; i++) fire.spawn(s.at, s.out.clone().multiplyScalar(this.R * rnd(.4, 1.1)).add(new THREE.Vector3().randomDirection().multiplyScalar(this.R * .15)), rnd(.8, 1.6), this.R * rnd(.02, .05), C(0xffd080, 3), C(0xa02000, .5), .2, .6); if (Math.random() < .5) breakOff(this, s.d, 3, .05); }
   }
-  checkDeath() { if (this.alive && (this.data.hp <= 0 || this.data.pop <= 0)) this.explode(); }
+  checkDeath() { if (!net.me && this.alive && (this.data.hp <= 0 || this.data.pop <= 0)) this.explode(); } // online, the server decides
   spawnPerson(dir, soldier) {
     const head = new THREE.Vector3().randomDirection().cross(dir).normalize();
     this.people.push({ dir: dir.clone(), head, speed: rnd(.05, .09), phase: Math.random() * 6, state: "walk", soldier,
@@ -1489,7 +1515,7 @@ class Planet {
     if (fadeIn) { grp.scale.setScalar(.01); addFx(2, (k) => grp.scale.setScalar(.01 + k)); }
   }
   pack() {
-    this.data.dmg = this.dmg.some((x) => x) ? b64(this.dmg) : null;
+    if (!net.me) this.data.dmg = this.dmg.some((x) => x) ? b64(this.dmg) : null;
     if (!this.isHome) return;
     this.data.sculpt = this.sculpt.some((x) => x) ? b64(new Uint8Array(this.sculpt.buffer)) : null;
     this.data.paint = this.paint.some((x) => x) ? b64(this.paint) : null;
@@ -1937,6 +1963,7 @@ $("editName").addEventListener("click", () => { $("renameRow").hidden = !$("rena
 $("renameSave").addEventListener("click", () => { renameHome($("renameInput").value); $("renameRow").hidden = true; });
 $("renameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { renameHome(e.target.value); $("renameRow").hidden = true; } });
 $("rebuildHome").addEventListener("click", () => {
+  if (net.me) { net.send({ t: "rebuild" }); toast("🏗 Rebuilding your planet…"); return; }
   const h = state.home; h.dead = false; h.hp = 100; h.pop = h.maxPop; h.troops = 0;
   home.dmg.fill(0); if (home.remnant) { home.group.remove(home.remnant); home.remnant = null; }
   home.spin.visible = true; home.atmoBack.visible = home.atmoRim.visible = true;
@@ -2140,8 +2167,8 @@ function hookInput(inputId, btnId, onSend) {
   $(btnId).addEventListener("click", send);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
 }
-hookInput("mailText", "mailSend", (t) => { const p = mailPlanet || home; p.data.mail.push({ who: state.home.owner, text: t, t: hhmm() }); renderMail(); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); });
-hookInput("chatText", "chatSend", (t) => { state.chat.push({ who: state.home.owner, text: t, t: hhmm() }); renderChat(); });
+hookInput("mailText", "mailSend", (t) => { const p = mailPlanet || home; if (net.me) { net.send({ t: "mail", id: p.data.id, text: t }); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); return; } p.data.mail.push({ who: state.home.owner, text: t, t: hhmm() }); renderMail(); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); });
+hookInput("chatText", "chatSend", (t) => { if (net.me) return net.send({ t: "chat", text: t }); state.chat.push({ who: state.home.owner, text: t, t: hhmm() }); renderChat(); });
 $("mailHome").addEventListener("click", () => openMail(home));
 
 // ================= star map + navigation =================
@@ -2311,8 +2338,8 @@ function setAimFromEvent(e) {
   $("crosshair").style.left = e.clientX + "px"; $("crosshair").style.top = e.clientY + "px";
 }
 function buildTags() {
-  $("tags").innerHTML = "";
-  for (const p of planets) { const d = document.createElement("div"); d.className = "tag"; d.hidden = true; $("tags").append(d); p.tag = d; }
+  $("tags").querySelectorAll(".ptag, #shipTag").forEach((el) => el.remove());
+  for (const p of planets) { const d = document.createElement("div"); d.className = "tag ptag"; d.hidden = true; $("tags").append(d); p.tag = d; }
   const st = document.createElement("div"); st.className = "tag"; st.id = "shipTag"; $("tags").append(st);
 }
 
@@ -2446,6 +2473,179 @@ function hurtPlayer(amount) {
     toast("💥 Your ship was destroyed! Rebuilding at home…", "boom", 2500);
     setTimeout(() => { playerDead = false; shipHp = 100; ship.visible = true; placeOrbit(orbitT); head.copy(ship.quaternion); toast(`🛠 ${esc(state.ship.name)} is ready again`); }, 2500);
   }
+}
+
+let gameStarted = false;
+// ================= online play =================
+// When the game is opened from the game server, everyone shares one live galaxy.
+// Opened any other way (a file, a preview), it runs alone with the world saved in this browser.
+const WORLD_OFFSET = new THREE.Vector3(); // your planet sits at the centre of your screen's world
+const TOKENKEY = "tinyplanets.token";
+const net = (() => {
+  const online = /^https?:$/.test(location.protocol) && !/claude\.ai|claudeusercontent|anthropic|localhost:0/.test(location.hostname) && !new URLSearchParams(location.search).has("offline");
+  let ws = null, retry = 1000;
+  const handlers = {};
+  function connect() {
+    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+    ws.onopen = () => { retry = 1000; ws.send(JSON.stringify({ t: "hello", token: load(TOKENKEY) })); setPill(); };
+    ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } try { handlers[m.t]?.(m); } catch (err) { console.error("net", m.t, err); } };
+    ws.onclose = () => { setPill(); setTimeout(connect, retry); retry = Math.min(15000, retry * 1.6); };
+  }
+  return {
+    online, connect, me: null, players: {}, count: 1,
+    send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); },
+    on(t, f) { handlers[t] = f; },
+    get connected() { return !!ws && ws.readyState === 1; },
+  };
+})();
+function setPill() {
+  const el = $("netPill"); if (!el) return;
+  el.hidden = !net.online;
+  el.textContent = net.connected ? `● ${net.count} online` : "● connecting…";
+  el.classList.toggle("off", !net.connected);
+}
+const r3 = (x) => Math.round(x * 1000) / 1000;
+const planetById = (id) => planets.find((p) => p.data.id === id);
+let lastSent = {};
+function syncOnline() { // send what changed on your own planet and ship
+  if (!net.me) return;
+  home.pack();
+  const patch = {};
+  for (const k of ["name", "design", "decor", "sculpt", "paint"]) { const v = JSON.stringify(state.home[k] ?? null); if (lastSent[k] !== v) { lastSent[k] = v; patch[k] = state.home[k] ?? null; } }
+  if (Object.keys(patch).length) net.send({ t: "planet", patch });
+  const sv = JSON.stringify(state.ship); if (lastSent.ship !== sv) { lastSent.ship = sv; net.send({ t: "ship", ship: state.ship }); }
+}
+function replacePlanet(data) { // rebuild one planet after a big change from the server
+  const old = planetById(data.id); if (!old) return;
+  scene.remove(old.group); old.tag.remove();
+  const p = new Planet(data, old.isHome ? 40 : 26, old.isHome);
+  planets[planets.indexOf(old)] = p; if (old.isHome) home = p;
+  const d = document.createElement("div"); d.className = "tag ptag"; d.hidden = true; $("tags").append(d); p.tag = d;
+  if (mapSel === old) mapSel = p; if (nav === old) nav = p; if (mailPlanet === old) mailPlanet = p;
+}
+// ---- other players' ships
+const remotes = new Map();
+class RemoteShip {
+  constructor(pid) {
+    this.pid = pid; this.remote = true; this.dead = false; this.hostile = false; this.hp = this.maxHp = 100; this.name = "Player";
+    this.group = new THREE.Group(); this.model = new THREE.Group(); this.group.add(this.model); scene.add(this.group);
+    this.info = { radius: .35, flames: [], lights: [], muzzles: [] }; this.cfgKey = "";
+    this.tp = new THREE.Vector3(); this.tq = new THREE.Quaternion(); this.seen = clock();
+    this.tag = document.createElement("div"); this.tag.className = "tag npc"; this.tag.hidden = true; $("tags").append(this.tag);
+  }
+  setCfg(cfg) { if (!cfg) return; const k = JSON.stringify(cfg); if (k === this.cfgKey) return; this.cfgKey = k; this.info = makeShipModel(cfg, this.model); }
+  setState(s) {
+    this.name = s.name; this.hp = s.hp ?? 100; this.seen = clock();
+    this.tp.fromArray(s.p).sub(WORLD_OFFSET); this.tq.fromArray(s.q);
+    if (!this.placed) { this.group.position.copy(this.tp); this.group.quaternion.copy(this.tq); this.placed = true; }
+  }
+  update(dt, t) {
+    const before = this.group.position.clone();
+    this.group.position.lerp(this.tp, Math.min(1, dt * 10)); this.group.quaternion.slerp(this.tq, Math.min(1, dt * 10));
+    const moving = before.distanceTo(this.group.position) / Math.max(dt, 1e-3) > 1.5;
+    for (const f of this.info.flames) f.visible = moving;
+    animateShipParts(this.info, t);
+  }
+  damage(amount) { net.send({ t: "pvp", target: this.pid, dmg: amount }); spark(this.group.position, .5); lastHitNpc = this; lastHitAt = clock(); }
+  remove() { scene.remove(this.group); this.tag.remove(); remotes.delete(this.pid); }
+}
+const fighters = () => (remotes.size ? npcs.concat([...remotes.values()]) : npcs);
+function remoteStep(dt, t) { for (const r of [...remotes.values()]) { if (clock() - r.seen > 6) r.remove(); else r.update(dt, t); } }
+setInterval(() => { // tell the server where you are, 10 times a second
+  if (!net.me || !gameStarted) return;
+  net.send({ t: "pos", p: ship.position.clone().add(WORLD_OFFSET).toArray().map(r3), q: ship.quaternion.toArray().map(r3), f: mode === "fly", hp: Math.round(shipHp) });
+}, 100);
+function remoteShot(m) { // draw other players' lasers
+  const from = V(m.from).sub(WORLD_OFFSET), to = V(m.to).sub(WORLD_OFFSET), dir = to.clone().sub(from); const L = dir.length(); if (!L || from.distanceTo(camera.position) > 150) return;
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, .7, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(.6, 2.5, 4) }));
+  mesh.position.copy(from); mesh.quaternion.setFromUnitVectors(UP, dir.normalize()); scene.add(mesh);
+  addFx(Math.min(1.5, L / 260), (k) => mesh.position.lerpVectors(from, to, k), () => scene.remove(mesh));
+}
+// ---- messages from the server
+function setupNet() {
+  net.on("welcome", (m) => {
+    if (gameStarted) { if (!m.you) toast("The server restarted and lost the world (it has no database yet). Reload the page to join again.", "boom", 8000); return; }
+    if (m.needsSeed) net.send({ t: "seed", planets: defaults().others });
+    if (m.you) enterWorld(m.you, m.world); else showJoin(m.world);
+  });
+  net.on("joined", (m) => { store(TOKENKEY, m.token); enterWorld(m.you, m.world); });
+  net.on("world", (m) => { if (!gameStarted) joinWorld = m.world; else for (const p of m.world.planets) if (!planetById(p.id) && p.id !== state.home.id) addPlanet(p); });
+  net.on("planetAdd", (m) => { net.players[m.player.id] = m.player; if (gameStarted && !planetById(m.planet.id)) addPlanet(m.planet); });
+  net.on("planetPatch", (m) => { const p = planetById(m.id); if (!p) return; Object.assign(p.data, m.patch); replacePlanet(p.data); if (ui.map) renderMap(); });
+  net.on("planetFull", (m) => { const p = planetById(m.planet.id); if (!p) return; Object.keys(p.data).forEach((k) => delete p.data[k]); Object.assign(p.data, m.planet); if (p.isHome) state.home = p.data; replacePlanet(p.data); if (p.isHome) { renderInfo(); renderDesign(); } });
+  net.on("hit", (m) => { const p = planetById(m.id); if (p && p.alive) p.hitAt(V(m.n), m.kind === "atom" ? "bomb" : m.kind, true); });
+  net.on("stat", (m) => {
+    const p = planetById(m.id); if (!p) return;
+    const d = p.data; d.hp = m.hp; d.pop = m.pop; d.troops = m.troops;
+    if (m.dead && p.alive) p.explode(); else if (p.alive) p.syncPeople(false);
+    if (p.isHome) { renderInfo(); if (m.dead) toast(`💥 Your planet ${esc(d.name)} was destroyed! Open Planet to rebuild it.`, "boom", 6000); }
+    if (ui.map) renderMapCard();
+  });
+  net.on("troops", (m) => { const p = planetById(m.id); if (p && p.alive) p.addSoldiers(m.count, V(m.n).normalize()); });
+  net.on("mail", (m) => {
+    const p = planetById(m.id); if (!p) return; p.data.mail.push(m.note);
+    if (mailPlanet === p || (!mailPlanet && p === home)) renderMail();
+    if (p === home && m.note.who !== net.me.name) toast(`📬 New note from ${esc(m.note.who)}`);
+  });
+  net.on("chat", (m) => { state.chat.push(m.msg); if (state.chat.length > 120) state.chat.shift(); renderChat(); if (!ui.chat && m.msg.who !== net.me?.name) toast(`💬 ${esc(m.msg.who)}: ${esc(m.msg.text)}`, "", 3500); });
+  net.on("ships", (m) => {
+    net.count = m.ships.length + (m.ships.some((s) => s.pid === net.me?.id) ? 0 : 1); setPill();
+    for (const s of m.ships) {
+      if (!net.me || s.pid === net.me.id) continue;
+      let r = remotes.get(s.pid); if (!r) { r = new RemoteShip(s.pid); remotes.set(s.pid, r); }
+      r.setCfg(net.players[s.pid]?.ship); r.setState(s);
+    }
+  });
+  net.on("shipCfg", (m) => { (net.players[m.pid] ||= { id: m.pid }).ship = m.ship; remotes.get(m.pid)?.setCfg(m.ship); });
+  net.on("left", (m) => remotes.get(m.pid)?.remove());
+  net.on("hurt", (m) => { if (mode !== "fly") return; hurtPlayer(m.dmg); if (shipHp <= 0) toast(`💥 ${esc(m.by)} destroyed your ship!`, "boom", 3000); });
+  net.on("shot", (m) => remoteShot(m));
+  net.connect();
+}
+function addPlanet(data) {
+  if (!data.design.around) data.design.around = {};
+  data.mail ||= []; data.decor ||= [];
+  state.others.push(data);
+  const p = new Planet(data, 26, false); planets.push(p);
+  const d = document.createElement("div"); d.className = "tag ptag"; d.hidden = true; $("tags").append(d); p.tag = d;
+  if (gameStarted) toast(`🪐 A new planet appeared: ${esc(data.name)}`);
+}
+let joinWorld = null;
+function showJoin(world) { // first visit: pick a name and a planet
+  joinWorld = world;
+  $("p-join").hidden = false; $("joinWait").hidden = true; $("joinForm").hidden = false;
+  let tpl = "earth";
+  const t = $("joinTemplates"); t.innerHTML = "";
+  for (const [k, tp] of Object.entries(TEMPLATES)) {
+    const b = document.createElement("button"); b.innerHTML = `<span class="dot" style="background:radial-gradient(circle at 35% 35%, ${tp.pattern === "none" ? tp.low : tp.p1}, ${tp.sea})"></span>${tp.label}`;
+    b.classList.toggle("on", k === tpl); b.addEventListener("click", () => { tpl = k; [...t.children].forEach((x) => x.classList.toggle("on", x === b)); }); t.append(b);
+  }
+  const go = () => {
+    const name = $("joinName").value.trim(), planetName = $("joinPlanet").value.trim();
+    if (!name) { $("joinMsg").textContent = "Please type your player name."; $("joinName").focus(); return; }
+    const base = defaults().home;
+    base.design = { ...designFrom(tpl, (Math.random() * 1000) | 0), around: { sats: 1 } };
+    base.decor = base.decor.map((d) => (d.type === "sign" && d.text === "GILAD'S ROCK" ? { ...d, text: (planetName || name).toUpperCase().slice(0, 20) } : d));
+    net.send({ t: "join", name, planetName: planetName || name + "'s Planet", planet: { design: base.design, decor: base.decor }, ship: { ...structuredClone(PRESETS.fighter), name: name + "'s Ship" } });
+    $("joinForm").hidden = true; $("joinWait").hidden = false; $("joinWait").textContent = "Creating your planet…";
+  };
+  $("joinGo").onclick = go;
+  $("joinPlanet").onkeydown = $("joinName").onkeydown = (e) => { if (e.key === "Enter") go(); };
+  $("joinName").focus();
+}
+function enterWorld(you, world) {
+  net.me = you;
+  for (const pl of world.players) net.players[pl.id] = pl;
+  const mineP = world.planets.find((p) => p.id === you.planetId);
+  WORLD_OFFSET.fromArray(mineP.pos);
+  for (const p of world.planets) { if (!p.design.around) p.design.around = {}; p.mail ||= []; p.decor ||= []; }
+  state = { home: mineP, others: world.planets.filter((p) => p !== mineP), ship: you.ship || { name: you.name + "'s Ship", ...structuredClone(PRESETS.fighter) }, chat: world.chat || [] };
+  delete state.ship.label;
+  lastSent = { name: JSON.stringify(mineP.name), design: JSON.stringify(mineP.design), decor: JSON.stringify(mineP.decor), sculpt: JSON.stringify(mineP.sculpt ?? null), paint: JSON.stringify(mineP.paint ?? null), ship: JSON.stringify(state.ship) };
+  $("p-join").hidden = true;
+  $("resetAsk").textContent = "Reset my planet";
+  startGame();
+  toast(`🌍 Welcome, ${esc(you.name)}! This galaxy is live: other players can visit you.`, "", 5000);
 }
 
 // ================= flying =================
@@ -2586,7 +2786,7 @@ function updateAim() { // the exact spot on whatever planet or alien ship is und
   aimPlanet = hit ? hit.object.userData.planet : null; aimNpc = null;
   if (hit) aimPoint.copy(hit.point); else ray.ray.at(300, aimPoint);
   let best = hit ? hit.distance : Infinity; const hp = new THREE.Vector3();
-  for (const n of npcs) {
+  for (const n of fighters()) {
     if (n.dead || !ray.ray.intersectSphere(_sphere.set(n.group.position, n.info.radius * 1.8), hp)) continue;
     const d = hp.distanceTo(camera.position); if (d < best) { best = d; aimNpc = n; aimPlanet = null; aimPoint.copy(n.group.position); }
   }
@@ -2615,6 +2815,7 @@ function fireWeapon(kind) {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(.012 * sz, .012 * sz, .7, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, .5, .8) }));
     m.position.copy(from); m.quaternion.setFromUnitVectors(UP, dir); scene.add(m);
     bolts.push({ kind, obj: m, v: dir.multiplyScalar(320), speed: 320, life: 2, target: aimTarget() });
+    if (net.me && Math.random() < .5) net.send({ t: "shot", kind, from: from.clone().add(WORLD_OFFSET).toArray().map(r3), to: aimPoint.clone().add(WORLD_OFFSET).toArray().map(r3) });
     sfx.laser();
   } else if (kind === "missile") {
     const g = new THREE.Group();
@@ -2663,7 +2864,7 @@ function impact(b, planet, point) {
     planet.hitAt(n, "bomb");
   } else if (b.kind === "troops") {
     spark(surf, .6, C(0x7dff9b, 2)); sfx.troops();
-    if (planet.alive) { planet.addSoldiers(5, n); planet.data.troops = planet.soldiers(); planet.lastHit = clock(); toast(`🪖 5 troops landed on ${esc(planet.data.name)}`); save(); }
+    if (planet.alive) { planet.addSoldiers(5, n); planet.data.troops = planet.soldiers(); if (net.me) net.send({ t: "troops", id: planet.data.id, n: n.toArray().map(r3), count: 5 }); planet.lastHit = clock(); toast(`🪖 5 troops landed on ${esc(planet.data.name)}`); save(); }
   }
 }
 function nuke(planet, at) { // one hit and the planet is gone
@@ -2680,6 +2881,7 @@ function nuke(planet, at) { // one hit and the planet is gone
     if (i % 2) smoke.spawn(p, vel2.clone().multiplyScalar(.6), rnd(3, 5), R * rnd(.2, .4), SMOKE0, SMOKE1, 2.5, .4);
   }
   planet.hitAt(planet.mesh.worldToLocal(at.clone()).normalize(), "bomb");
+  if (net.me) net.send({ t: "hit", id: planet.data.id, n: planet.mesh.worldToLocal(at.clone()).normalize().toArray().map(r3), kind: "atom" });
   planet.data.hp = 0; planet.checkDeath();
   toast(`☢ ${esc(planet.data.name)} was hit by an atom bomb!`, "boom", 3000);
 }
@@ -2716,7 +2918,7 @@ function boltStep(dt) {
     }
     b.obj.position.addScaledVector(b.v, dt);
     let gone = b.life <= 0;
-    if (!gone) for (const n of npcs) { // stray shots can still hit alien ships
+    if (!gone) for (const n of fighters()) { // stray shots can still hit alien ships and other players
       if (n.dead || (b.target && b.target.npc === n)) continue;
       if (hitSphere(p0, b.obj.position, n.group.position, n.info.radius * 1.3)) { n.damage(NPC_DAMAGE[b.kind] || 2); if (b.kind !== "laser") boom(n.group.position, 1.2); gone = true; break; }
     }
@@ -2796,7 +2998,11 @@ function flyStep(dt) {
     if (dd < nav.R * 5) { toast(`🎯 You reached ${esc(nav.data.name)}!`); setNav(null); }
   }
   const tgt = currentTarget(); $("target").hidden = !tgt;
-  if (tgt && tgt instanceof Npc) {
+  if (tgt && tgt.remote) {
+    $("tName").textContent = tgt.name; $("tOwner").textContent = "another player";
+    $("tHp").style.width = Math.max(0, tgt.hp) + "%"; $("tHpText").textContent = Math.ceil(Math.max(0, tgt.hp)) + "%";
+    $("tPop").textContent = "player ship"; $("tTroops").textContent = "";
+  } else if (tgt && tgt instanceof Npc) {
     $("tName").textContent = tgt.name; $("tOwner").textContent = tgt.hostile ? "attacking you!" : tgt.type === "trader" ? "peaceful" : "on patrol";
     $("tHp").style.width = Math.max(0, tgt.hp / tgt.maxHp * 100) + "%"; $("tHpText").textContent = Math.ceil(Math.max(0, tgt.hp / tgt.maxHp * 100)) + "%";
     $("tPop").textContent = "alien ship"; $("tTroops").textContent = "";
@@ -2842,14 +3048,14 @@ function updateTags() {
     p.tag.style.left = (v.x + 1) / 2 * innerWidth + "px"; p.tag.style.top = (1 - v.y) / 2 * innerHeight + "px";
     p.tag.innerHTML = `${p === nav ? "➤ " : ""}${esc(p.data.name)}<br><b>${esc(p.data.owner)}</b> · ${p.alive ? fmt(p.data.pop) + " people" : "destroyed"} · ${fmt(dist * 1000)} km`;
   }
-  for (const n of npcs) { // names over alien ships that are close
-    const d = n.group.position.distanceTo(ship.position), show = flying && !n.dead && d < (n.hostile ? 140 : 45);
+  for (const n of fighters()) { // names over alien ships and other players that are close
+    const d = n.group.position.distanceTo(ship.position), show = !n.dead && (n.remote ? d < 220 : flying && d < (n.hostile ? 140 : 45));
     if (!show) { n.tag.hidden = true; continue; }
     v.copy(n.group.position); v.y += n.info.radius * 1.5; v.project(camera);
     if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) { n.tag.hidden = true; continue; }
     n.tag.hidden = false; n.tag.classList.toggle("dead", n.hostile);
     n.tag.style.left = (v.x + 1) / 2 * innerWidth + "px"; n.tag.style.top = (1 - v.y) / 2 * innerHeight + "px";
-    n.tag.textContent = `${n.hostile ? "⚠ " : ""}${n.name} · ${Math.ceil(n.hp / n.maxHp * 100)}%`;
+    n.tag.textContent = n.remote ? `🧑‍🚀 ${n.name} · ${Math.ceil(n.hp)}%` : `${n.hostile ? "⚠ " : ""}${n.name} · ${Math.ceil(n.hp / n.maxHp * 100)}%`;
   }
   const st = $("shipTag");
   if (mode === "home" && view === "main") {
@@ -2876,6 +3082,7 @@ $("resetAsk").addEventListener("click", () => { $("resetConfirm").hidden = false
 $("resetNo").addEventListener("click", () => { $("resetConfirm").hidden = true; $("resetAskRow").hidden = false; });
 $("reset").addEventListener("click", () => {
   $("resetConfirm").hidden = true; $("resetAskRow").hidden = false;
+  if (net.me) { const b = defaults().home; net.send({ t: "resetPlanet", planet: { design: b.design, decor: b.decor } }); setTool(null); toast("Your planet is back to the start"); return; }
   for (const p of planets) for (const im of Object.values(p.parts)) im.count = 0;
   state = defaults(); setNav(null); mapSel = null; mailPlanet = null; setTool(null); draftImg = ''; showSignPreview('');
   buildWorld(); buildShip(); spawnNpcs(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); save(); setView("main");
@@ -2927,7 +3134,7 @@ function frame() {
     } else controls.update();
     if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
   }
-  boltStep(dt); npcStep(dt, t); junkStep(dt);
+  boltStep(dt); npcStep(dt, t); junkStep(dt); remoteStep(dt, t);
   if (mode === "home") for (const f of ship.userData.flames) if (view !== "hangar") f.visible = true;
   animateShipParts(ship.userData, t);
   fire.update(dt); smoke.update(dt); chunks.update(dt);
@@ -2949,10 +3156,14 @@ function frame() {
   camera.position.sub(off);
 }
 
-buildWorld(); buildShip(); spawnNpcs(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); renderPanels(); applyQuality();
-{ const dist = viewDistance(); camera.position.set(0, dist * .22, dist); }
-renderer.setAnimationLoop(frame);
-window.__tp = { npcs, camera, aimPoint, get aimPlanet() { return aimPlanet; }, get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
+function startGame() {
+  if (gameStarted) return; gameStarted = true; document.body.classList.remove("joining");
+  buildWorld(); buildShip(); spawnNpcs(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); renderPanels(); applyQuality();
+  { const dist = viewDistance(); camera.position.set(0, dist * .22, dist); }
+  renderer.setAnimationLoop(frame); setPill();
+}
+if (net.online) { document.body.classList.add("joining"); $("p-join").hidden = false; setupNet(); } else startGame();
+window.__tp = { net, remotes, get home() { return home; }, npcs, camera, aimPoint, get aimPlanet() { return aimPlanet; }, get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
 </script>
 </body>
 </html>
