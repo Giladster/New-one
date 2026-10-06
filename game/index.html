@@ -163,13 +163,17 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <div class="ph"><span class="label">Decorate</span><button class="x" data-close="view" aria-label="Close decorate">×</button></div>
   <span class="small">Pick an item, move over your planet to see where it goes, then click to place it.</span>
   <div class="group"><span class="label">Buildings</span><div class="row"><button data-tool="tower">Tower</button><button data-tool="house">House</button><button data-tool="castle">Castle</button><button data-tool="base">Space base</button><button data-tool="sign">Sign</button></div></div>
+  <div class="group"><span class="label">Defense</span><div class="row"><button data-tool="turret">Defense tower</button></div><span class="small">Shoots at anyone who attacks your planet.</span></div>
+  <div class="group"><span class="label">Aliens</span><div class="row"><button data-tool="alien">Alien</button></div>
+    <div class="group" id="alienBox" hidden><div class="choice" id="alienKinds"></div><div class="choice" id="alienPose"></div></div>
+  </div>
   <div class="group"><span class="label">Famous landmarks</span><div class="row"><button data-tool="pisa">Pisa tower</button><button data-tool="eiffel">Eiffel tower</button><button data-tool="magic">Magic castle</button></div></div>
   <div class="group"><span class="label">Change things</span><div class="row"><button data-tool="editsign">Edit an item</button><button data-tool="remove" class="danger">Eraser</button></div></div>
   <div class="group"><span class="label" id="signBoxTitle">New item</span>
-    <label class="slider">Size<input type="range" id="signSize" min="0.5" max="6" step="0.05" value="1"></label>
+    <label class="slider">Size<input type="range" id="signSize" min="0.5" max="8" step="0.05" value="1"></label>
   </div>
   <div class="group" id="signBox" hidden>
-    <span class="label">Sign text and picture</span>
+    <span class="label" id="signBoxLabel">Sign text and picture</span>
     <input id="signText" type="text" maxlength="24" value="HELLO SPACE" aria-label="Sign text">
     <div class="row"><label class="filebtn" for="signImg">Add picture</label><input id="signImg" type="file" accept="image/*" hidden><button id="signImgClear">No picture</button><img id="signPreview" alt="Sign picture" hidden></div>
   </div>
@@ -210,7 +214,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <div class="group"><span class="label">Around your planet</span>
     <div class="choice" id="aroundToggles"></div>
     <label class="slider">Satellites<input type="range" id="s-sats" min="0" max="6" step="1"></label>
-    <div class="row" id="alienRow"><input id="alienText" type="text" maxlength="18" placeholder="Alien's sign" aria-label="Text on the giant alien's sign"></div>
+    <span class="small">Aliens, castles and defense towers are in Decorate.</span>
   </div>
 </section>
 
@@ -405,7 +409,7 @@ const AROUND = { // rings, moons, satellites, rain and giant aliens around each 
   "Terra Nova": { sats: 3, moon: true }, "Zorg Prime": { ring: true, moon: true, alien: true, alienText: "GO AWAY" }, "Krell Station": { sats: 5 },
 };
 const otherDecor = (i) => [
-  { type: "mailbox", n: [0, .35, .94] },
+  { type: "mailbox", n: [0, .35, .94] }, { type: "turret", n: [-.55, .25, .8] }, ...(i % 3 === 0 ? [{ type: "turret", n: [.6, -.1, .78] }] : []),
   { type: "tower", n: [.5, .8, .2] }, { type: "house", n: [-.4, .5, .75] }, { type: "house", n: [.3, .2, .9] },
   ...(i % 2 ? [{ type: "sign", n: [-.1, .6, .78], text: ["SWEET HOME", "NO SEEDS", "KEEP OUT", "HI!"][i % 4] }] : []),
 ];
@@ -450,7 +454,8 @@ OTHERS.forEach((o, i) => { if (!state.others.some((p) => p.name === o.name)) sta
 for (const p of [state.home, ...state.others]) if (!p.design.around) p.design.around = structuredClone(AROUND[p.name] || {});
 for (const k of Object.keys(PRESETS.fighter)) if (state.ship[k] === undefined && k !== "label") state.ship[k] = PRESETS.fighter[k];
 delete state.ship.label;
-let ui = load(UIKEY) || { mail: true, chat: true, help: false, muted: false };
+let ui = load(UIKEY) || { mail: true, chat: false, help: false, muted: false };
+if (ui.mail && ui.chat) ui.chat = false; // only one menu open at a time
 for (const k of ["info", "design", "build", "hangar", "map"]) ui[k] = false; // every visit starts in the main view
 let saveTimer = 0;
 const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { for (const p of planets) p.pack(); store(KEY, state); }, 400); };
@@ -855,7 +860,9 @@ function makeDecor(type, d = {}) {
     m(new RoundedBoxGeometry(.07, .06, .11, 3, .025), mats.mail, .19);
     m(new THREE.BoxGeometry(.006, .06, .012), mats.flag, .22, .04, -.02);
     m(new THREE.BoxGeometry(.006, .025, .03), mats.flag, .25, .04, -.004);
-  } else if (type !== "sign") decorExtra(type, g, m);
+  } else if (type === "alien") { const a = buildAlien(d); g.add(a); g.userData.wave = a.userData.wave; }
+  else if (type === "turret") buildDefenseTower(g, m);
+  else if (type !== "sign") decorExtra(type, g, m);
   else {
     m(new THREE.CylinderGeometry(.012, .014, .22, 12), mats.wood, .11);
     const face = new THREE.MeshStandardMaterial({ map: signTexture(d), roughness: .9 });
@@ -877,7 +884,7 @@ mats.bronze = (() => { // see-through iron lattice for the Eiffel tower
 mats.glass = new THREE.MeshPhysicalMaterial({ color: 0x9fe8ff, roughness: .05, metalness: .1, transparent: true, opacity: .55, clearcoat: 1 });
 mats.pad = new THREE.MeshStandardMaterial({ color: 0x2b313d, metalness: .6, roughness: .4 });
 mats.alien = new THREE.MeshStandardMaterial({ color: 0x6ad84a, roughness: .45 });
-const DECOR = { tower: "Tower", house: "House", sign: "Sign", castle: "Castle", base: "Space base", pisa: "Pisa tower", eiffel: "Eiffel tower", magic: "Magic castle" };
+const DECOR = { tower: "Tower", house: "House", sign: "Sign", castle: "Castle", base: "Space base", turret: "Defense tower", alien: "Alien", pisa: "Pisa tower", eiffel: "Eiffel tower", magic: "Magic castle" };
 function decorExtra(type, g, m) { // the bigger buildings and famous landmarks
   const H = Math.PI / 2;
   if (type === "castle") {
@@ -957,6 +964,108 @@ function makeSatellite() {
   return g;
 }
 
+const ALIENS = { classic: "Classic green", zorg: "Three-eyed Zorg", blob: "Purple blob", octo: "Space octopus" };
+mats.alienGreen = new THREE.MeshStandardMaterial({ color: 0x86e35c, roughness: .4 });
+mats.alienPurple = new THREE.MeshStandardMaterial({ color: 0xa36ae0, roughness: .3, metalness: .05 });
+mats.alienOrange = new THREE.MeshStandardMaterial({ color: 0xff8a3a, roughness: .45 });
+mats.eyeBlack = new THREE.MeshPhysicalMaterial({ color: 0x050505, roughness: .05, clearcoat: 1 });
+mats.eyeWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .2 });
+mats.glowTip = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 2.5, .5) });
+function buildAlien(d) { // friendly alien characters that sit or stand and can hold a sign
+  const kind = d.kind || "classic", sit = (d.pose || "sit") === "sit", g = new THREE.Group();
+  const add = (geo, mat, p, r = [0, 0, 0], s = [1, 1, 1], parent = g) => { const o = new THREE.Mesh(geo, mat); o.position.set(...p); o.rotation.set(...r); o.scale.set(...s); parent.add(o); return o; };
+  const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 16), H = Math.PI / 2;
+  let wave, hold, chest;
+  if (kind === "classic" || kind === "zorg") {
+    const skin = kind === "classic" ? mats.alienGreen : mats.alien, hip = sit ? .07 : .2;
+    for (const s of [-1, 1]) {
+      if (sit) { add(cap(.024, .12), skin, [s * .05, hip, .08], [H, 0, 0]); add(cap(.022, .06), skin, [s * .05, .035, .16]); add(new THREE.SphereGeometry(.03, 12, 10), skin, [s * .05, .005, .18], [0, 0, 0], [1, .5, 1.4]); }
+      else { add(cap(.024, .17), skin, [s * .05, .11, 0]); add(new THREE.SphereGeometry(.03, 12, 10), skin, [s * .05, .01, .02], [0, 0, 0], [1, .5, 1.4]); }
+    }
+    add(cap(.065, .12), skin, [0, hip + .11, 0], [0, 0, 0], [1, 1, .8]); chest = hip + .16;
+    add(new THREE.CylinderGeometry(.018, .022, .06, 12), skin, [0, hip + .24, 0]);
+    if (kind === "classic") {
+      add(new THREE.SphereGeometry(.13, 32, 24), skin, [0, hip + .37, 0], [0, 0, 0], [1, 1.12, .95]);
+      add(new THREE.SphereGeometry(.06, 20, 14), skin, [0, hip + .29, .03], [0, 0, 0], [.8, .9, .8]); // narrow chin
+      for (const s of [-1, 1]) add(new THREE.SphereGeometry(.048, 24, 16), mats.eyeBlack, [s * .055, hip + .36, .098], [0, s * .35, s * .5], [1.6, .72, .55]);
+      add(new THREE.TorusGeometry(.012, .003, 6, 14, Math.PI), mats.eyeBlack, [0, hip + .285, .085], [0, 0, Math.PI]);
+    } else {
+      add(new THREE.SphereGeometry(.14, 32, 24), skin, [0, hip + .38, 0]);
+      for (const [x, y, k] of [[-.055, .38, 1], [.055, .38, 1], [0, .45, .8]]) { add(new THREE.SphereGeometry(.035 * k, 20, 14), mats.eyeWhite, [x, hip + y, .115]); add(new THREE.SphereGeometry(.017 * k, 12, 10), mats.eyeBlack, [x, hip + y, .145]); }
+      add(new THREE.TorusGeometry(.035, .007, 8, 20, Math.PI), mats.eyeBlack, [0, hip + .32, .125], [0, 0, Math.PI]);
+      for (const s of [-1, 1]) { add(new THREE.CylinderGeometry(.006, .006, .13, 8), skin, [s * .06, hip + .55, 0], [0, 0, -s * .3]); add(new THREE.SphereGeometry(.018, 12, 10), mats.glowTip, [s * .08, hip + .62, 0]); }
+    }
+    wave = new THREE.Group(); wave.position.set(.075, hip + .2, 0); g.add(wave);
+    add(cap(.016, .15), skin, [0, .09, 0], [0, 0, 0], [1, 1, 1], wave);
+    add(new THREE.SphereGeometry(.026, 14, 10), skin, [0, .18, 0], [0, 0, 0], [1, 1, 1], wave);
+    for (const a of [-.4, 0, .4]) add(cap(.006, .03), skin, [Math.sin(a) * .02, .21, 0], [0, 0, -a], [1, 1, 1], wave);
+    hold = new THREE.Group(); hold.position.set(-.075, hip + .2, 0); g.add(hold);
+    add(cap(.016, .12), skin, [0, -.02, .06], [H * .9, 0, 0], [1, 1, 1], hold);
+  } else if (kind === "blob") {
+    const lift = sit ? 0 : .06;
+    add(new THREE.SphereGeometry(.2, 40, 28), mats.alienPurple, [0, .19 + lift, 0], [0, 0, 0], [1, sit ? .85 : 1.05, 1]);
+    add(new THREE.SphereGeometry(.085, 24, 18), mats.eyeWhite, [0, .27 + lift, .15]); add(new THREE.SphereGeometry(.04, 16, 12), mats.eyeBlack, [0, .27 + lift, .225]);
+    add(new THREE.TorusGeometry(.05, .008, 8, 20, Math.PI), mats.eyeBlack, [0, .15 + lift, .18], [0, 0, Math.PI]);
+    wave = new THREE.Group(); wave.position.set(.18, .2 + lift, 0); g.add(wave);
+    add(cap(.03, .14), mats.alienPurple, [0, .09, 0], [0, 0, 0], [1, 1, 1], wave);
+    hold = new THREE.Group(); hold.position.set(-.18, .2 + lift, .02); g.add(hold);
+    add(cap(.03, .1), mats.alienPurple, [0, 0, .06], [H * .9, 0, 0], [1, 1, 1], hold);
+    chest = .22 + lift;
+  } else { // octopus
+    const lift = sit ? 0 : .08;
+    add(new THREE.SphereGeometry(.16, 36, 26), mats.alienOrange, [0, .3 + lift, 0], [0, 0, 0], [1, 1.15, 1]);
+    for (const s of [-1, 1]) { add(new THREE.SphereGeometry(.04, 18, 12), mats.eyeWhite, [s * .06, .32 + lift, .13]); add(new THREE.SphereGeometry(.02, 12, 10), mats.eyeBlack, [s * .06, .32 + lift, .165]); }
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2 + .3, r0 = .1, r1 = .26;
+      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(Math.cos(a) * r0, .2 + lift, Math.sin(a) * r0), new THREE.Vector3(Math.cos(a) * .2, .06 + lift * .5, Math.sin(a) * .2), new THREE.Vector3(Math.cos(a) * r1, .01, Math.sin(a) * r1), new THREE.Vector3(Math.cos(a + .4) * .3, .04, Math.sin(a + .4) * .3)]);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 20, .022, 8), mats.alienOrange));
+    }
+    wave = new THREE.Group(); wave.position.set(.14, .26 + lift, 0); g.add(wave);
+    add(cap(.022, .16), mats.alienOrange, [0, .1, 0], [0, 0, .2], [1, 1, 1], wave);
+    hold = new THREE.Group(); hold.position.set(-.14, .26 + lift, .02); g.add(hold);
+    add(cap(.022, .12), mats.alienOrange, [0, -.02, .06], [H * .9, 0, 0], [1, 1, 1], hold);
+    chest = .26 + lift;
+  }
+  if (d.holds !== false) { // the sign it holds up
+    const s = makeDecor("sign", { text: d.text || "HELLO!", img: d.img });
+    s.scale.setScalar(.9); s.position.set(.07, -.25, .14); hold.add(s);
+  }
+  g.userData.wave = wave;
+  return g;
+}
+function buildDefenseTower(g, m) { // a gun tower that shoots at anyone attacking its planet
+  m(new THREE.CylinderGeometry(.06, .08, .14, 20), mats.pad, .07);
+  m(new THREE.TorusGeometry(.065, .008, 8, 24), mats.lamp, .13).rotation.x = Math.PI / 2;
+  const head = new THREE.Group(); head.position.y = .17; head.name = "turretHead"; g.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(.055, 20, 14), mats.metal));
+  for (const x of [-.018, .018]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(.008, .008, .12, 10), mats.pad); b.rotation.x = Math.PI / 2; b.position.set(x, .01, .07); head.add(b); }
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(.014, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, .4, .4) })); eye.position.set(0, .03, .045); head.add(eye);
+  g.userData.turret = head;
+}
+const PANIC = ["WE ARE UNDER ATTACK!", "HELP!!!", "NOT MY HOUSE!", "CALL MOM!", "WHY US?!", "RUN!!!", "STOP IT!", "I JUST PAINTED THAT!", "AAAAAH!", "GO AWAY!", "MY CAT!", "SAVE THE CHEESE!"];
+const panicTex = new Map();
+function panicSprite(text) {
+  if (!panicTex.has(text)) {
+    const c = document.createElement("canvas"); c.width = 512; c.height = 160; const g = c.getContext("2d");
+    g.fillStyle = "#fffdf4"; g.strokeStyle = "#c0202a"; g.lineWidth = 10;
+    g.beginPath(); g.roundRect(8, 8, 496, 120, 26); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(230, 126); g.lineTo(256, 156); g.lineTo(282, 126); g.fill();
+    let size = 56; g.textAlign = "center"; g.textBaseline = "middle";
+    do { g.font = `700 ${size}px "Chakra Petch", sans-serif`; size -= 2; } while (g.measureText(text).width > 460);
+    g.fillStyle = "#c0202a"; g.fillText(text, 256, 70);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; panicTex.set(text, t);
+  }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: panicTex.get(text), depthWrite: false }));
+  return s;
+}
+const JUNK = [ // what scared people throw at your ship
+  () => new THREE.Mesh(new THREE.SphereGeometry(.03, 10, 8), new THREE.MeshStandardMaterial({ color: 0xe0302a, roughness: .5 })),
+  () => new THREE.Mesh(new RoundedBoxGeometry(.06, .025, .03, 2, .008), new THREE.MeshStandardMaterial({ color: 0x6a3a1e, roughness: .8 })),
+  () => new THREE.Mesh(new THREE.DodecahedronGeometry(.03, 0), new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 1, flatShading: true })),
+  () => new THREE.Mesh(new THREE.TorusGeometry(.025, .01, 8, 16), new THREE.MeshStandardMaterial({ color: 0xffc8e0, roughness: .6 })),
+];
+const junk = [];
+
 // ================= people =================
 const PERSON = (() => { // one small person, about house-sized
   const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 4, 10);
@@ -1033,7 +1142,7 @@ class Planet {
     this.spin.add(this.mesh, this.ocean, this.clouds, this.decor, ...Object.values(this.parts));
     this.group.add(this.atmoBack, this.atmoRim);
     this.grid = new Float32Array(GW * GH); this.gridLand = new Uint8Array(GW * GH);
-    this.people = []; this.lastHit = -99; this.cheerUntil = 0; this.dirty = false; this.lastBuild = 0; this.welcomed = false;
+    this.people = []; this.signs = []; this.lastHit = -99; this.cheerUntil = 0; this.dirty = false; this.lastBuild = 0; this.welcomed = false;
     this.refreshBase(); this.rebuild(); this.rebuildDecor(); this.buildAround();
     if (data.dead) this.showDead();
     else { this.syncPeople(true); this.addSoldiers(data.troops, null); }
@@ -1161,7 +1270,6 @@ class Planet {
   get perPerson() { return this.data.maxPop / MAXPEOPLE; }
   buildAround() {
     if (this.aroundGroup) this.group.remove(this.aroundGroup);
-    if (this.alien) { this.spin.remove(this.alien); this.alien = null; }
     const a = this.data.design.around || {}, R = this.R, g = this.aroundGroup = new THREE.Group(); this.group.add(g);
     this.sats = []; this.moon = null;
     if (a.ring) { const m = new THREE.Mesh(new THREE.RingGeometry(R * 1.45, R * 2.4, 128, 1), new THREE.MeshStandardMaterial({ map: ringTex, color: this.data.design.atmo, transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: .8 })); m.rotation.set(-1.25, 0, .35); g.add(m); }
@@ -1171,19 +1279,13 @@ class Planet {
       sat.userData.orbit = { r: R * rnd(1.5, 1.95), a: Math.random() * 6, sp: rnd(.2, .45), tilt: new THREE.Quaternion().setFromEuler(new THREE.Euler(rnd(-1, 1), rnd(0, 6), rnd(-1, 1))) };
       g.add(sat); this.sats.push(sat);
     }
-    if (a.alien && this.alive) {
-      this.alien = makeAlien(a.alienText, R);
-      const n = V([.15, .8, .58]).normalize(), z = new THREE.Vector3(0, .3, 1).projectOnPlane(n).normalize();
-      this.alien.position.copy(n).multiplyScalar(this.radiusAt(n) - .02 * R);
-      this.alien.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(n.clone().cross(z), n, z));
-      this.spin.add(this.alien);
-    }
     g.visible = this.alive;
   }
   animateAround(dt, t) {
     if (this.moon) { const a = t * .12 + this.R; this.moon.position.set(Math.cos(a) * this.R * 3.2, Math.sin(a * .7) * this.R * .5, Math.sin(a) * this.R * 3.2); this.moon.rotation.y += dt * .1; }
     for (const sat of this.sats) { const o = sat.userData.orbit; o.a += dt * o.sp; sat.position.set(Math.cos(o.a) * o.r, 0, Math.sin(o.a) * o.r).applyQuaternion(o.tilt); sat.rotation.y += dt * .5; }
-    if (this.alien) { const fast = clock() < (this.alienWaveUntil || 0); this.alien.userData.wave.rotation.z = -.5 + Math.sin(t * (fast ? 9 : 3)) * (fast ? .7 : .35); }
+    const fast = clock() < (this.alienWaveUntil || 0);
+    for (const o of this.decor.children) if (o.userData.wave) o.userData.wave.rotation.z = -.35 + Math.sin(t * (fast ? 9 : 3) + o.position.x * 5) * (fast ? .6 : .3); // aliens wave
     const a = this.data.design.around;
     if (a && a.rain && this.alive && camera.position.distanceTo(this.group.position) < this.R * 25) { // rain falling onto the planet
       let n = 90 * dt * (ui.low ? .4 : 1); const dir = new THREE.Vector3();
@@ -1203,6 +1305,31 @@ class Planet {
     sfx.rumble(at); setTimeout(() => sfx.boom(2.5, at), 300);
     shake = Math.max(shake, .12 * Math.max(0, 1 - camera.position.distanceTo(at) / 40));
     toast(`⚠ ${esc(this.data.name)} is breaking apart!`, "boom", 2200);
+  }
+  defend(dt) { // an attacked planet fights back: towers shoot, people throw things
+    if (mode !== "fly" || playerDead || !this.alive || clock() - (this.playerHitAt || -99) > 20) return;
+    const d = ship.position.distanceTo(this.group.position), wp = new THREE.Vector3();
+    if (d > this.R * 16) return;
+    for (const o of this.decor.children) {
+      const head = o.userData.turret; if (!head) continue;
+      head.getWorldPosition(wp); if (wp.distanceTo(ship.position) > this.R * 14) continue;
+      head.lookAt(ship.position);
+      o.userData.cd = (o.userData.cd ?? rnd(.2, 1)) - dt;
+      if (o.userData.cd > 0) continue;
+      o.userData.cd = rnd(.8, 1.4);
+      const lead = ship.position.clone().addScaledVector(vel, wp.distanceTo(ship.position) / 90).add(new THREE.Vector3().randomDirection().multiplyScalar(rnd(0, .8)));
+      const dir = lead.sub(wp).normalize(), m = new THREE.Mesh(new THREE.CylinderGeometry(.016, .016, .6, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, .5, .3) }));
+      m.position.copy(wp).addScaledVector(dir, .1); m.quaternion.setFromUnitVectors(UP, dir); scene.add(m);
+      npcBolts.push({ obj: m, v: dir.multiplyScalar(90), life: 2.5, from: this }); sfx.enemyLaser(wp);
+    }
+    if (d < this.R * 8 && (this.throwCd = (this.throwCd || 0) - dt) <= 0) {
+      this.throwCd = rnd(.25, .7);
+      const civ = this.civilians(); if (!civ.length) return;
+      const pr = civ[(Math.random() * civ.length) | 0], from = this.mesh.localToWorld(pr.dir.clone().multiplyScalar(this.radiusAt(pr.dir) + .1));
+      const m = JUNK[(Math.random() * JUNK.length) | 0](); m.scale.setScalar(this.R / 1.6 * 1.6); m.position.copy(from); scene.add(m);
+      const dir = ship.position.clone().addScaledVector(vel, .4).sub(from).normalize().add(new THREE.Vector3().randomDirection().multiplyScalar(.07)).normalize();
+      junk.push({ obj: m, v: dir.multiplyScalar(rnd(9, 15)), life: 4, ax: new THREE.Vector3().randomDirection() });
+    }
   }
   leak(dt) { // smoke, lava drips and sparks pour out of a hurt planet
     const hurt = 1 - this.data.hp / 100;
@@ -1275,6 +1402,16 @@ class Planet {
       const next = p.dir.clone().addScaledVector(p.head, speed * dt).normalize();
       if (this.isLand(next)) p.dir.copy(next); else p.head.negate();
       p.head.projectOnPlane(p.dir).normalize();
+    }
+    // scared people hold up signs
+    if (panic && civ.length && this.signs.length < Math.min(4, civ.length) && Math.random() < dt * 3) {
+      const sp = panicSprite(PANIC[(Math.random() * PANIC.length) | 0]); sp.userData.person = civ[(Math.random() * civ.length) | 0]; sp.userData.until = clock() + rnd(2, 4);
+      this.spin.add(sp); this.signs.push(sp);
+    }
+    for (let i = this.signs.length - 1; i >= 0; i--) {
+      const sp = this.signs[i], pr = sp.userData.person;
+      if (!panic || clock() > sp.userData.until || pr.state !== "walk") { this.spin.remove(sp); sp.material.dispose(); this.signs.splice(i, 1); continue; }
+      const k = Math.sqrt(this.R / 1.6); sp.position.copy(pr.dir).multiplyScalar(this.radiusAt(pr.dir) + .3 * k); sp.scale.set(.42 * k, .13 * k, 1);
     }
     // pose every person: walking legs and arms, waving when happy, flailing when scared or thrown
     let k = 0;
@@ -1459,7 +1596,12 @@ function megaBoom(planet, center, R) {
 }
 
 let home, planets = [];
+function liftAliens(p) { // older saves kept the giant alien in Design; it is a decoration now
+  const a = p.design.around || {};
+  if (a.alien) { p.decor.push({ type: "alien", kind: "zorg", pose: "sit", text: a.alienText || "HELLO!", size: 3, n: [.15, .8, .58] }); delete a.alien; delete a.alienText; }
+}
 function buildWorld() {
+  for (const p of [state.home, ...state.others]) liftAliens(p);
   for (const p of planets) scene.remove(p.group);
   home = new Planet(state.home, 40, true);
   planets = [home, ...state.others.map((o) => new Planet(o, 26, false))];
@@ -1722,7 +1864,7 @@ function setView(v) {
   if (mode !== "home") return;
   view = v;
   for (const [vv, panel] of Object.entries(VIEWS)) ui[panel] = vv === v;
-  if (narrow() && v !== "main") ui.mail = ui.chat = ui.map = false;
+  if (v !== "main") ui.mail = ui.chat = ui.map = ui.help = false; // only one menu open at a time
   $("renameRow").hidden = true;
   setTool(null); frameCamera(); renderPanels(); saveUi();
 }
@@ -1733,10 +1875,12 @@ function goMain() { // Esc and the Home button: straight back to the normal view
   setView("main");
 }
 function setPanel(name, open) { // small panels on top of any view: map, mail, chat, flight controls
-  if (open && narrow()) for (const k of ["mail", "chat", "map", "help"]) if (k !== name) ui[k] = false;
+  if (open) { // opening a menu closes the one that was open
+    for (const k of ["mail", "chat", "map", "help"]) if (k !== name) ui[k] = false;
+    if (mode === "home" && view !== "main") setView("main");
+  }
   ui[name] = open;
   if (name === "map" && open) { renderMap(); renderMapCard(); }
-  if ((name === "mail" || name === "chat") && open && mode === "home" && view !== "main") setView("main");
   renderPanels(); saveUi();
 }
 function renderPanels() {
@@ -1808,6 +1952,7 @@ const HINTS = {
   tower: "Move over your planet and click to place a tower", house: "Move over your planet and click to place a house", sign: "Move over your planet and click to place your sign",
   remove: "Point at an item and click to erase it", editsign: "Click an item to change its size (and a sign's text or picture)",
   castle: "Move over your planet and click to place a castle", base: "Move over your planet and click to place a space base",
+  turret: "Click your planet to place a defense tower", alien: "Pick an alien below, then click your planet to place it",
   pisa: "Click your planet to place the Pisa tower", eiffel: "Click your planet to place the Eiffel tower", magic: "Click your planet to place the magic castle",
   raise: "Drag on your planet to grow mountains", lower: "Drag on your planet to dig seas", smooth: "Drag to flatten bumps", paint: "Drag on your planet to paint",
 };
@@ -1838,18 +1983,37 @@ function updateHint() {
 }
 // ---- signs: text, size and an optional picture
 let editSign = null, draftImg = "";
-function signFields() { return { text: ($("signText").value.trim() || "HI").toUpperCase(), size: +$("signSize").value, img: editSign ? editSign.img || "" : draftImg }; }
-function showSignBox() { $("signBox").hidden = !(tool === "sign" || (editSign && editSign.type === "sign")); }
+const draftAlien = { kind: "classic", pose: "sit", holds: true };
+function signFields() {
+  const f = { text: ($("signText").value.trim() || "HI").toUpperCase(), size: +$("signSize").value, img: editSign ? editSign.img || "" : draftImg };
+  if (tool === "alien") Object.assign(f, draftAlien);
+  return f;
+}
+function showSignBox() {
+  const t = editSign ? editSign.type : tool;
+  $("signBox").hidden = !(t === "sign" || (t === "alien" && (editSign ? editSign.holds !== false : draftAlien.holds)));
+  $("alienBox").hidden = t !== "alien";
+  $("signBoxLabel").textContent = t === "alien" ? "Text on the alien's sign" : "Sign text and picture";
+  if (t === "alien") renderAlienBox();
+}
+function renderAlienBox() {
+  const a = editSign && editSign.type === "alien" ? editSign : draftAlien;
+  const changed = () => { if (editSign) { home.rebuildDecor(); save(); } else setTool("alien"); showSignBox(); };
+  choiceRow($("alienKinds"), ALIENS, (k) => (a.kind || "classic") === k, (k) => { a.kind = k; changed(); });
+  choiceRow($("alienPose"), { sit: "Sitting", stand: "Standing", sign: "Holds a sign", nosign: "No sign" },
+    (k) => (k === "sit" || k === "stand" ? (a.pose || "sit") === k : (k === "sign") === (a.holds !== false)),
+    (k) => { if (k === "sit" || k === "stand") a.pose = k; else a.holds = k === "sign"; changed(); });
+}
 function showSignPreview(src) { $("signPreview").hidden = !src; if (src) $("signPreview").src = src; }
 function signChanged() {
-  if (editSign) { if (editSign.type === "sign") editSign.text = $("signText").value.trim().toUpperCase(); editSign.size = +$("signSize").value; home.rebuildDecor(); save(); }
+  if (editSign) { if (editSign.type === "sign" || editSign.type === "alien") editSign.text = $("signText").value.trim().toUpperCase(); editSign.size = +$("signSize").value; home.rebuildDecor(); save(); }
   else if (PLACE.includes(tool)) setTool(tool);
 }
 function startSignEdit(d) {
   editSign = d;
   $("signText").value = d.text || ""; $("signSize").value = d.size || 1; showSignPreview(d.img);
   $("signBoxTitle").textContent = "Editing this " + (DECOR[d.type] || "item").toLowerCase(); $("signDoneRow").hidden = false; showSignBox();
-  sfx.place(); toast(d.type === "sign" ? "Change the size, text or picture. Changes show right away." : "Drag the size slider. Changes show right away.", "", 2200);
+  sfx.place(); toast(d.type === "sign" ? "Change the size, text or picture. Changes show right away." : d.type === "alien" ? "Change the alien's size, look, pose or sign. Changes show right away." : "Drag the size slider. Changes show right away.", "", 2200);
 }
 function finishSignEdit() {
   editSign = null; $("signBoxTitle").textContent = "New item"; $("signDoneRow").hidden = true; showSignBox();
@@ -1907,11 +2071,11 @@ function renderDesign() {
 function designChanged() { home.rebuild(); home.placeDecor(); home.buildAround(); renderDesign(); save(); }
 function renderAround() {
   const a = D().around || (D().around = {});
-  choiceRow($("aroundToggles"), { ring: "Ring", moon: "Moon", rain: "Rain", alien: "Giant alien" }, (k) => !!a[k], (k) => { a[k] = !a[k]; home.buildAround(); renderAround(); save(); });
-  $("s-sats").value = a.sats || 0; $("alienText").value = a.alienText || "HELLO!"; $("alienRow").hidden = !a.alien;
+  choiceRow($("aroundToggles"), { ring: "Ring", moon: "Moon", rain: "Rain" }, (k) => !!a[k], (k) => { a[k] = !a[k]; home.buildAround(); renderAround(); save(); });
+  $("s-sats").value = a.sats || 0;
 }
 $("s-sats").addEventListener("input", (e) => { D().around.sats = +e.target.value; home.buildAround(); save(); });
-$("alienText").addEventListener("input", (e) => { D().around.alienText = e.target.value.toUpperCase(); home.buildAround(); save(); });
+
 for (const k of ["sea", "shore", "low", "high", "peak", "p1", "p2", "atmo"]) $("c-" + k).addEventListener("input", (e) => { D()[k] = e.target.value; home.rebuild(); save(); });
 $("c-clouds").addEventListener("input", (e) => { D().clouds = e.target.value; home.rebuild(); renderDesign(); save(); });
 $("s-sea").addEventListener("input", (e) => { D().seaLevel = +e.target.value; home.rebuild(); home.placeDecor(); save(); });
@@ -2088,7 +2252,7 @@ canvas.addEventListener("pointermove", (e) => {
     if (!eraseMark) { eraseMark = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, .3, .4), transparent: true, opacity: .35, depthWrite: false })); scene.add(eraseMark); }
     eraseMark.material.color.set(tool === "remove" ? new THREE.Color(2, .3, .4) : new THREE.Color(2, 1.6, .3));
     eraseMark.visible = !!ok;
-    if (eraseMark.visible) { o.getWorldPosition(eraseMark.position); eraseMark.scale.setScalar(.22 * home.R / 1.6 * o.userData.size * (["castle", "base", "pisa", "eiffel", "magic"].includes(o.userData.type) ? 1.6 : 1)); }
+    if (eraseMark.visible) { o.getWorldPosition(eraseMark.position); eraseMark.scale.setScalar(.22 * home.R / 1.6 * o.userData.size * (["castle", "base", "pisa", "eiffel", "magic", "alien"].includes(o.userData.type) ? 1.6 : 1)); }
   }
   hover(e);
 });
@@ -2116,7 +2280,7 @@ canvas.addEventListener("pointerup", (e) => {
     if (!hit) return;
     const n = home.mesh.worldToLocal(hit.point.clone()).normalize();
     const d = { type: tool, n: n.toArray().map((x) => +x.toFixed(4)), face: home.mesh.worldToLocal(camera.position.clone()).normalize().toArray().map((x) => +x.toFixed(4)) };
-    if (tool === "sign") Object.assign(d, signFields()); else d.size = +$("signSize").value;
+    if (tool === "sign" || tool === "alien") Object.assign(d, signFields()); else d.size = +$("signSize").value;
     s.decor.push(d); home.rebuildDecor(); save();
     spark(home.mesh.localToWorld(n.clone().multiplyScalar(home.radiusAt(n) + .05)), .5, C(0x7dff9b, 2)); sfx.place();
     if (ghost) ghost.visible = false;
@@ -2259,6 +2423,19 @@ function npcStep(dt, t) {
     if (!gone && mode === "fly" && !playerDead && !rolling() && hitSphere(p0, b.obj.position, ship.position, ship.userData.radius * 1.2)) { hurtPlayer(6); spark(b.obj.position, .5, RED); gone = true; }
     if (!gone) for (const p of planets) if (p.alive && hitSphere(p0, b.obj.position, p.group.position, p.R)) { gone = true; break; }
     if (gone) { scene.remove(b.obj); b.obj.geometry.dispose(); npcBolts.splice(i, 1); }
+  }
+}
+let lastSplat = -99;
+function junkStep(dt) { // tomatoes, shoes and rocks flying at your ship
+  for (let i = junk.length - 1; i >= 0; i--) {
+    const j = junk[i]; j.life -= dt;
+    const p0 = j.obj.position.clone(); j.obj.position.addScaledVector(j.v, dt); j.obj.rotateOnAxis(j.ax, dt * 8);
+    let gone = j.life <= 0;
+    if (!gone && mode === "fly" && !playerDead && !rolling() && hitSphere(p0, j.obj.position, ship.position, ship.userData.radius * 1.4)) {
+      hurtPlayer(1); spark(j.obj.position, .3, C(0xff6040, 2)); gone = true;
+      if (clock() - lastSplat > 6) { lastSplat = clock(); toast(["🍅 Splat! They are throwing tomatoes!", "👟 Someone threw a shoe at you!", "🪨 Rocks! The people are angry!", "🍩 Was that a donut?!"][(Math.random() * 4) | 0], "", 2000); }
+    }
+    if (gone) { scene.remove(j.obj); junk.splice(i, 1); }
   }
 }
 function hurtPlayer(amount) {
@@ -2634,9 +2811,10 @@ function flyStep(dt) {
   for (const p of planets) {
     if (!p.alive || p === home) continue;
     const d = ship.position.distanceTo(p.group.position);
-    if (p.alien) {
+    const alien = p.data.decor.find((x) => x.type === "alien");
+    if (alien) {
       if (d > p.R * 16) p.alienGreeted = false;
-      else if (d < p.R * 9 && !p.alienGreeted) { p.alienGreeted = true; p.alienWaveUntil = clock() + 6; toast(`👽 The giant alien on ${esc(p.data.name)} waves: “${esc(p.data.design.around.alienText || "HELLO!")}”`, "", 3500); sfx.cheer(); }
+      else if (d < p.R * 9 && !p.alienGreeted && clock() - (p.playerHitAt || -99) > 20) { p.alienGreeted = true; p.alienWaveUntil = clock() + 6; toast(`👽 The alien on ${esc(p.data.name)} waves at you${alien.holds !== false ? `: “${esc(alien.text || "HELLO!")}”` : "!"}`, "", 3500); sfx.cheer(); }
     }
     if (d > p.R * 14) p.welcomed = false;
     else if (d < p.R * 7 && !p.welcomed && clock() - p.lastHit > 20) {
@@ -2727,7 +2905,7 @@ function frame() {
     if (p.remnant) p.remnant.rotation.y += dt * .05;
     if (p.dirty && clock() - p.lastBuild > .09) { p.rebuild(); p.placeDecor(); }
     if (p.alive && camera.position.distanceTo(p.group.position) < 60) p.updatePeople(dt, t);
-    if (p.alive && camera.position.distanceTo(p.group.position) < 160) p.leak(dt);
+    if (p.alive && camera.position.distanceTo(p.group.position) < 160) { p.leak(dt); p.defend(dt); }
     if (p.alive && p.data.troops > 0) { // troops slowly take over a planet
       p.data.pop = Math.max(0, p.data.pop - p.data.maxPop * .0012 * p.data.troops * dt);
       if (Math.random() < dt * 2) afterDamage(p);
@@ -2749,7 +2927,7 @@ function frame() {
     } else controls.update();
     if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
   }
-  boltStep(dt); npcStep(dt, t);
+  boltStep(dt); npcStep(dt, t); junkStep(dt);
   if (mode === "home") for (const f of ship.userData.flames) if (view !== "hangar") f.visible = true;
   animateShipParts(ship.userData, t);
   fire.update(dt); smoke.update(dt); chunks.update(dt);
