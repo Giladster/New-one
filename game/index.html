@@ -52,7 +52,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .row input[type=text] { flex: 1; }
 .small { font-size: 12px; color: var(--muted); }
 
-#p-info { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 290px; gap: 6px; }
+
 #p-info h1 { margin: 0; font: 700 22px var(--display); letter-spacing: .02em; display: flex; align-items: center; gap: 6px; }
 #p-info h1 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #editName { padding: 2px 7px; font-size: 13px; }
@@ -62,7 +62,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .stat .fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--accent) 40%, var(--good)); transition: width .3s; }
 .stat .k { width: 46px; color: var(--muted); }
 
-.tool { top: calc(178px + env(safe-area-inset-top, 0px)); left: 16px; width: 310px; max-height: calc(100% - 270px); overflow-y: auto; }
+.sidebar { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: clamp(250px, 30vw, 330px); overflow-y: auto; align-content: start; }
 .side { right: 16px; width: 290px; }
 #p-mail { top: calc(16px + env(safe-area-inset-top, 0px)); }
 #p-chat { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
@@ -133,9 +133,8 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 #pad button { height: 52px; padding: 0; font-size: 12px; user-select: none; touch-action: none; }
 @media (pointer: coarse) { body.flying #pad { display: grid; } }
 
-@media (max-width: 820px) {
-  .tool, .side, #p-help { left: 16px; right: 16px; width: auto; top: auto; bottom: calc(132px + env(safe-area-inset-bottom, 0px)); max-height: 42%; overflow-y: auto; }
-  #p-info { width: auto; right: 16px; }
+@media (max-width: 600px) {
+  .sidebar, .side, #p-help { left: 16px; right: 16px; width: auto; top: auto; bottom: calc(132px + env(safe-area-inset-bottom, 0px)); max-height: 40%; overflow-y: auto; }
   #target { width: calc(100% - 32px); }
   #weapons button { min-width: 0; padding: 5px 7px; }
   .hint { display: none; }
@@ -146,7 +145,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 <body>
 <canvas id="scene"></canvas>
 
-<section id="p-info" class="hud panel" data-panel="info">
+<section id="p-info" class="hud panel sidebar" data-panel="info" hidden>
   <div class="ph"><span class="label">Your planet</span><button class="x" data-close="view" aria-label="Close planet info">×</button></div>
   <h1><span id="planetName">Kepler-7b</span><button id="editName" aria-label="Rename planet">✎</button></h1>
   <div class="row" id="renameRow" hidden><input id="renameInput" type="text" maxlength="20" aria-label="New planet name"><button id="renameSave">Save</button></div>
@@ -154,9 +153,13 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <div class="stat"><span class="k">HEALTH</span><div class="bar"><div class="fill" id="hpFill"></div></div><span id="hpText">100%</span></div>
   <div class="stat"><span class="k">PEOPLE</span><span id="popText">0</span></div>
   <button id="rebuildHome" class="go" hidden>Rebuild my planet</button>
+  <div class="group"><span class="label">Game</span>
+    <div class="row" id="resetAskRow"><button class="danger" id="resetAsk">Reset game</button></div>
+    <div class="group" id="resetConfirm" hidden><span class="small">Start over? Your planet, ship, notes and all other planets go back to the start.</span><div class="row"><button class="danger" id="reset">Yes, reset</button><button id="resetNo">No, keep playing</button></div></div>
+  </div>
 </section>
 
-<section id="p-build" class="hud panel tool" data-panel="build" hidden>
+<section id="p-build" class="hud panel sidebar" data-panel="build" hidden>
   <div class="ph"><span class="label">Decorate</span><button class="x" data-close="view" aria-label="Close decorate">×</button></div>
   <span class="small">Pick an item, move over your planet to see where it goes, then click to place it.</span>
   <div class="row"><button data-tool="tower">Tower</button><button data-tool="house">House</button><button data-tool="sign">Sign</button><button data-tool="editsign">Edit a sign</button><button data-tool="remove" class="danger">Eraser</button></div>
@@ -167,10 +170,10 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <div class="row"><label class="filebtn" for="signImg">Add picture</label><input id="signImg" type="file" accept="image/*" hidden><button id="signImgClear">No picture</button><img id="signPreview" alt="Sign picture" hidden></div>
     <div class="row" id="signDoneRow" hidden><button class="go" id="signDone">Done editing</button></div>
   </div>
-  <div class="row"><button class="danger" id="attack">Test attack</button><button id="reset">Reset whole game</button></div>
+  <div class="row"><button class="danger" id="attack">Test attack</button></div>
 </section>
 
-<section id="p-design" class="hud panel tool" data-panel="design" hidden>
+<section id="p-design" class="hud panel sidebar" data-panel="design" hidden>
   <div class="ph"><span class="label">Design your planet</span><button class="x" data-close="view" aria-label="Close design">×</button></div>
   <div class="group"><span class="label">Name</span><input id="nameInput" type="text" maxlength="20" aria-label="Planet name"></div>
   <div class="group"><span class="label">Templates</span><div class="templates" id="templates"></div></div>
@@ -201,7 +204,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   </div>
 </section>
 
-<section id="p-hangar" class="hud panel tool" data-panel="hangar" hidden>
+<section id="p-hangar" class="hud panel sidebar" data-panel="hangar" hidden>
   <div class="ph"><span class="label">Hangar · build your ship</span><button class="x" data-close="view" aria-label="Close hangar">×</button></div>
   <div class="group"><span class="label">Quick ships</span><div class="choice" id="presets"></div></div>
   <div class="group"><span class="label">Ship name</span><input id="shipName" type="text" maxlength="18" aria-label="Ship name"></div>
@@ -309,7 +312,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
+import { mergeVertices, mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 const $ = (id) => document.getElementById(id);
 const V = (a) => new THREE.Vector3(...a);
@@ -816,9 +819,22 @@ function makeDecor(type, d = {}) {
 }
 
 // ================= people =================
-const BODY_GEO = new THREE.CapsuleGeometry(.011, .026, 4, 10).translate(0, .024, 0);
-const HEAD_GEO = new THREE.SphereGeometry(.012, 12, 10).translate(0, .057, 0);
+const PERSON = (() => { // one small person, about house-sized
+  const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 4, 10);
+  const eye = (x) => new THREE.SphereGeometry(.0055, 8, 6).translate(x, .156, .022);
+  const mouth = new THREE.TorusGeometry(.0075, .0019, 4, 12, Math.PI).rotateZ(Math.PI).translate(0, .143, .0235);
+  return {
+    torso: cap(.021, .036).translate(0, .089, 0),
+    head: new THREE.SphereGeometry(.026, 16, 12).translate(0, .151, 0),
+    face: mergeGeometries([eye(-.009), eye(.009), mouth]),
+    arm: mergeGeometries([cap(.0075, .036).translate(0, -.026, 0), new THREE.SphereGeometry(.0105, 10, 8).translate(0, -.057, 0)]),
+    leg: cap(.0095, .036).translate(0, -.027, 0),
+  };
+})();
 const personMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .6 });
+const faceMat = new THREE.MeshBasicMaterial({ color: 0x15100c });
+const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c3550, roughness: .8 });
+const LIMB = { armL: new THREE.Vector3(.031, .112, 0), armR: new THREE.Vector3(-.031, .112, 0), legL: new THREE.Vector3(.013, .058, 0), legR: new THREE.Vector3(-.013, .058, 0) };
 const SHIRTS = [0xff5a6e, 0x6fe3ff, 0xffb547, 0x7dff9b, 0xc8a2ff, 0xffffff, 0xff8ad8].map((c) => new THREE.Color(c));
 const SKINS = [0xf2c9a0, 0xc68a5c, 0x8a5a3a, 0xffe0c0].map((c) => new THREE.Color(c));
 const ARMY = new THREE.Color(0x3d6b2e), HELMET = new THREE.Color(0x2a4a1e);
@@ -841,14 +857,19 @@ class Planet {
     this.geo = g; const pos = g.attributes.position; const U = this.U = pos.count;
     this.dirs = new Float32Array(U * 3);
     for (let u = 0; u < U; u++) { _v.fromBufferAttribute(pos, u).normalize(); this.dirs.set([_v.x, _v.y, _v.z], u * 3); }
-    this.base = new Float32Array(U); this.radius = new Float32Array(U); this.land = new Uint8Array(U);
+    this.base = new Float32Array(U); this.radius = new Float32Array(U); this.land = new Uint8Array(U); this.ridge = new Float32Array(U); this.hot = [];
     this.sculpt = new Float32Array(U); this.paint = new Uint8Array(U * 4); this.dmg = new Uint8Array(U);
     const unpack = (s, len) => { if (!s) return null; try { const b = unb64(s); return b.length === len ? b : null; } catch { return null; } };
     const sc = unpack(data.sculpt, U * 4); if (sc) this.sculpt = new Float32Array(sc.buffer);
     this.paint = unpack(data.paint, U * 4) || this.paint;
     this.dmg = unpack(data.dmg, U) || this.dmg;
     g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(U * 3), 3));
+    g.setAttribute("glow", new THREE.BufferAttribute(new Float32Array(U), 1));
     this.mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .82, metalness: 0, envMapIntensity: .35 });
+    this.mat.onBeforeCompile = (sh) => { // cracks and wounds glow like lava
+      sh.vertexShader = "attribute float glow;\nvarying float vGlow;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvGlow = glow;");
+      sh.fragmentShader = "varying float vGlow;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(1.0, .32, .06) * vGlow * 3.0;");
+    };
     this.mesh = new THREE.Mesh(g, this.mat); this.mesh.userData.planet = this;
     this.ocean = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ roughness: .16, metalness: .05, transparent: true, opacity: .88, envMapIntensity: 1.1 }));
     this.clouds = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ map: cloudTex, transparent: true, depthWrite: false, roughness: 1, envMapIntensity: .3 }));
@@ -863,9 +884,14 @@ class Planet {
     this.atmoBack = new THREE.Mesh(sphereGeo, atmoShader(true));
     this.atmoRim = new THREE.Mesh(sphereGeo, atmoShader(false));
     this.decor = new THREE.Group();
-    this.bodies = new THREE.InstancedMesh(BODY_GEO, personMat, 140); this.heads = new THREE.InstancedMesh(HEAD_GEO, personMat, 140);
-    for (const im of [this.bodies, this.heads]) { im.count = 0; im.frustumCulled = false; im.setColorAt(0, SHIRTS[0]); }
-    this.spin.add(this.mesh, this.ocean, this.clouds, this.decor, this.bodies, this.heads);
+    this.parts = {
+      torso: new THREE.InstancedMesh(PERSON.torso, personMat, 140), head: new THREE.InstancedMesh(PERSON.head, personMat, 140),
+      face: new THREE.InstancedMesh(PERSON.face, faceMat, 140),
+      armL: new THREE.InstancedMesh(PERSON.arm, personMat, 140), armR: new THREE.InstancedMesh(PERSON.arm, personMat, 140),
+      legL: new THREE.InstancedMesh(PERSON.leg, pantsMat, 140), legR: new THREE.InstancedMesh(PERSON.leg, pantsMat, 140),
+    };
+    for (const im of Object.values(this.parts)) { im.count = 0; im.frustumCulled = false; if (im.material === personMat) im.setColorAt(0, SHIRTS[0]); }
+    this.spin.add(this.mesh, this.ocean, this.clouds, this.decor, ...Object.values(this.parts));
     this.group.add(this.atmoBack, this.atmoRim);
     this.grid = new Float32Array(GW * GH); this.gridLand = new Uint8Array(GW * GH);
     this.people = []; this.lastHit = -99; this.cheerUntil = 0; this.dirty = false; this.lastBuild = 0; this.welcomed = false;
@@ -877,14 +903,20 @@ class Planet {
   get alive() { return !this.data.dead; }
   refreshBase() {
     const d = this.data.design, f = d.bumps, s = d.seed * 17.3;
-    for (let u = 0; u < this.U; u++) this.base[u] = fbm(this.dirs[u * 3], this.dirs[u * 3 + 1], this.dirs[u * 3 + 2], f, s);
+    for (let u = 0; u < this.U; u++) {
+      const x = this.dirs[u * 3], y = this.dirs[u * 3 + 1], z = this.dirs[u * 3 + 2];
+      this.base[u] = fbm(x, y, z, f, s);
+      this.ridge[u] = 1 - Math.abs(noise(x * 4.5 + 11, y * 4.5, z * 4.5) * 2 - 1) * .7 - Math.abs(noise(x * 9 + 3, y * 9, z * 9) * 2 - 1) * .3; // crack lines
+    }
   }
   rebuild() {
     const d = this.data.design, R = this.R, hasSea = d.seaLevel > .02;
     const K = {}; for (const k of ["sea", "shore", "low", "high", "peak", "p1", "p2"]) K[k] = new THREE.Color(d[k]);
     const seaFloor = K.sea.clone().multiplyScalar(.45);
     const col = new THREE.Color(), n = new THREE.Vector3();
-    const pos = this.geo.attributes.position.array, cols = this.geo.attributes.color.array;
+    const pos = this.geo.attributes.position.array, cols = this.geo.attributes.color.array, glow = this.geo.attributes.glow.array;
+    const stress = this.alive ? ss(60, 4, this.data.hp) : 0; // 0 = healthy, 1 = about to blow
+    this.hot.length = 0;
     for (let u = 0; u < this.U; u++) {
       n.fromArray(this.dirs, u * 3);
       const t = this.base[u] + this.sculpt[u] - d.seaLevel;
@@ -903,11 +935,15 @@ class Planet {
       if (this.paint[u * 4 + 3]) col.setRGB(this.paint[u * 4] / 255, this.paint[u * 4 + 1] / 255, this.paint[u * 4 + 2] / 255, THREE.SRGBColorSpace);
       const dm = this.dmg[u] / 255;
       if (dm) { elev -= dm * .1; col.lerp(SCORCH, Math.min(1, dm * 1.3)); }
+      let gl = dm > .3 ? ss(.3, 1, dm) * (.35 + .65 * ss(.6, .95, this.ridge[u])) : 0;
+      if (stress) gl = Math.max(gl, stress * ss(.93 - stress * .1, .985, this.ridge[u]));
+      if (gl > .05) { elev -= gl * .025; col.lerp(SCORCH, gl * .6); if (gl > .3) this.hot.push(u); }
+      glow[u] = gl;
       const r = this.radius[u] = R * (1 + elev);
       pos[u * 3] = n.x * r; pos[u * 3 + 1] = n.y * r; pos[u * 3 + 2] = n.z * r;
       cols[u * 3] = col.r; cols[u * 3 + 1] = col.g; cols[u * 3 + 2] = col.b;
     }
-    this.geo.attributes.position.needsUpdate = this.geo.attributes.color.needsUpdate = true;
+    this.geo.attributes.position.needsUpdate = this.geo.attributes.color.needsUpdate = this.geo.attributes.glow.needsUpdate = true;
     this.geo.computeVertexNormals(); this.geo.computeBoundingSphere();
     this.ocean.visible = hasSea; this.ocean.scale.setScalar(R);
     this.ocean.material.color.set(d.sea); this.ocean.material.emissive.set(d.sea); this.ocean.material.emissiveIntensity = d.glow || 0;
@@ -975,17 +1011,43 @@ class Planet {
     this.data.decor = this.data.decor.filter((d) => d.type === "mailbox" || V(d.n).normalize().distanceTo(n) > cfg.size * 1.1);
     if (this.data.decor.length !== before) { this.rebuildDecor(); boom(this.mesh.localToWorld(n.clone().multiplyScalar(this.R)), .6); }
     const flung = this.fling(n, cfg.size * 1.6 + .05, cfg.power);
+    const hpBefore = this.data.hp;
     this.data.hp = Math.max(0, this.data.hp - cfg.hp);
     this.data.pop = Math.max(0, this.data.pop - this.data.maxPop * cfg.pop - flung * this.perPerson * .3);
+    if (kind !== "laser") breakOff(this, n, kind === "bomb" ? 16 : 7, cfg.size);
+    for (const m of [75, 50, 25]) if (hpBefore > m && this.data.hp <= m && this.data.hp > 0) this.collapse(m);
     this.lastHit = clock(); this.cheerUntil = 0;
     afterDamage(this);
   }
   get perPerson() { return this.data.maxPop / MAXPEOPLE; }
+  collapse(level) { // a big piece of the planet caves in
+    const n = this.hot.length ? V([this.dirs[this.hot[0] * 3], this.dirs[this.hot[0] * 3 + 1], this.dirs[this.hot[0] * 3 + 2]]).add(new THREE.Vector3().randomDirection().multiplyScalar(.6)).normalize() : new THREE.Vector3().randomDirection();
+    const size = .3 + (75 - level) / 250, cosL = Math.cos(size);
+    for (let u = 0; u < this.U; u++) {
+      const dt = this.dirs[u * 3] * n.x + this.dirs[u * 3 + 1] * n.y + this.dirs[u * 3 + 2] * n.z;
+      if (dt > cosL) this.dmg[u] = Math.min(255, this.dmg[u] + Math.round(255 * ss(cosL, 1, dt)));
+    }
+    this.dirty = true;
+    const at = this.mesh.localToWorld(n.clone().multiplyScalar(this.R));
+    boom(at, 1.6 * this.R); breakOff(this, n, 30, size); this.fling(n, size, 3);
+    sfx.rumble(at); setTimeout(() => sfx.boom(2.5, at), 300);
+    shake = Math.max(shake, .12 * Math.max(0, 1 - camera.position.distanceTo(at) / 40));
+    toast(`⚠ ${esc(this.data.name)} is breaking apart!`, "boom", 2200);
+  }
+  leak(dt) { // smoke, lava drips and sparks pour out of a hurt planet
+    const hurt = 1 - this.data.hp / 100;
+    if (hurt < .04 || !this.hot.length) return;
+    const emit = (rate, fn) => { let n = rate * dt; while (n > 0) { if (n >= 1 || Math.random() < n) fn(); n--; } };
+    const spot = () => { const u = this.hot[(Math.random() * this.hot.length) | 0]; const d = V([this.dirs[u * 3], this.dirs[u * 3 + 1], this.dirs[u * 3 + 2]]); return { d, at: this.mesh.localToWorld(d.clone().multiplyScalar(this.radius[u])), out: d.clone().transformDirection(this.mesh.matrixWorld) }; };
+    emit(4 + hurt * hurt * 50, () => { const s = spot(); smoke.spawn(s.at, s.out.multiplyScalar(this.R * rnd(.15, .4)).add(new THREE.Vector3().randomDirection().multiplyScalar(.05)), rnd(2.5, 4.5), this.R * rnd(.06, .16), SMOKE0, SMOKE1, 3.5, .35); });
+    emit(hurt * hurt * 70, () => { const s = spot(); fire.spawn(s.at, s.out.multiplyScalar(this.R * rnd(.05, .35)), rnd(.6, 1.6), this.R * rnd(.015, .04), C(0xffb050, 2.4), C(0x601000, .4), .3, .4); });
+    if (hurt > .55 && Math.random() < dt * hurt * 1.5) { const s = spot(); for (let i = 0; i < 30; i++) fire.spawn(s.at, s.out.clone().multiplyScalar(this.R * rnd(.4, 1.1)).add(new THREE.Vector3().randomDirection().multiplyScalar(this.R * .15)), rnd(.8, 1.6), this.R * rnd(.02, .05), C(0xffd080, 3), C(0xa02000, .5), .2, .6); if (Math.random() < .5) breakOff(this, s.d, 3, .05); }
+  }
   checkDeath() { if (this.alive && (this.data.hp <= 0 || this.data.pop <= 0)) this.explode(); }
   spawnPerson(dir, soldier) {
     const head = new THREE.Vector3().randomDirection().cross(dir).normalize();
     this.people.push({ dir: dir.clone(), head, speed: rnd(.05, .09), phase: Math.random() * 6, state: "walk", soldier,
-      shirt: soldier ? ARMY : SHIRTS[this.people.length % SHIRTS.length], skin: soldier ? HELMET : SKINS[(Math.random() * SKINS.length) | 0], nextShot: clock() + rnd(1, 3), target: null });
+      shirt: soldier ? ARMY : SHIRTS[this.people.length % SHIRTS.length], skin: SKINS[(Math.random() * SKINS.length) | 0], nextShot: clock() + rnd(1, 3), target: null });
   }
   randomLand() {
     const v = new THREE.Vector3();
@@ -1044,24 +1106,37 @@ class Planet {
       if (this.isLand(next)) p.dir.copy(next); else p.head.negate();
       p.head.projectOnPlane(p.dir).normalize();
     }
+    // pose every person: walking legs and arms, waving when happy, flailing when scared or thrown
     let k = 0;
-    const x = new THREE.Vector3();
+    const x = new THREE.Vector3(), P = this.parts, sc = .8 * Math.sqrt(this.R / 1.6), M = new THREE.Matrix4(), L = new THREE.Matrix4(), R = new THREE.Matrix4(), e = new THREE.Euler();
+    _s.setScalar(sc);
     for (const p of this.people) {
-      if (p.state === "fly") { _q.setFromAxisAngle(p.axis, p.spinA); _v.copy(p.pos); }
+      let swing = 0, armUp = .12, wave = 0;
+      if (p.state === "fly") { _q.setFromAxisAngle(p.axis, p.spinA); _v.copy(p.pos); armUp = 2.4; wave = Math.sin(t * 30 + p.phase) * .6; swing = Math.sin(t * 25 + p.phase) * .9; }
       else {
         x.crossVectors(p.dir, p.head);
         _m.makeBasis(x, p.dir, p.head); _q.setFromRotationMatrix(_m);
-        const hop = cheer && !p.soldier ? Math.abs(Math.sin(t * 9 + p.phase)) * .04 : Math.abs(Math.sin(t * 14 + p.phase)) * .005;
+        const cheering = cheer && !p.soldier, scared = panic && !p.soldier;
+        const hop = cheering ? Math.abs(Math.sin(t * 9 + p.phase)) * .03 : Math.abs(Math.sin(t * 12 + p.phase)) * .004;
         _v.copy(p.dir).multiplyScalar(this.radiusAt(p.dir) + hop);
+        if (cheering) { armUp = 2.7; wave = Math.sin(t * 14 + p.phase) * .35; }
+        else if (scared) { armUp = 2.3; wave = Math.sin(t * 26 + p.phase) * .5; swing = Math.sin(t * 22 + p.phase) * .9; }
+        else swing = Math.sin(t * 11 + p.phase) * .6;
       }
-      _m.compose(_v, _q, _s);
-      this.bodies.setMatrixAt(k, _m); this.heads.setMatrixAt(k, _m);
-      this.bodies.setColorAt(k, p.shirt); this.heads.setColorAt(k, p.skin);
+      M.compose(_v, _q, _s);
+      P.torso.setMatrixAt(k, M); P.head.setMatrixAt(k, M); P.face.setMatrixAt(k, M);
+      for (const [name, side] of [["armL", 1], ["armR", -1]]) {
+        L.makeRotationFromEuler(e.set(-swing * side * .8, 0, side * (armUp + wave * side))); L.setPosition(LIMB[name]);
+        P[name].setMatrixAt(k, R.multiplyMatrices(M, L)); P[name].setColorAt(k, p.skin);
+      }
+      for (const [name, side] of [["legL", 1], ["legR", -1]]) {
+        L.makeRotationX(swing * side); L.setPosition(LIMB[name]);
+        P[name].setMatrixAt(k, R.multiplyMatrices(M, L));
+      }
+      P.torso.setColorAt(k, p.shirt); P.head.setColorAt(k, p.soldier ? HELMET : p.skin);
       k++;
     }
-    this.bodies.count = this.heads.count = k;
-    this.bodies.instanceMatrix.needsUpdate = this.heads.instanceMatrix.needsUpdate = true;
-    this.bodies.instanceColor.needsUpdate = this.heads.instanceColor.needsUpdate = true;
+    for (const im of Object.values(P)) { im.count = k; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
   }
   explode() {
     if (!this.alive) return;
@@ -1109,6 +1184,35 @@ class Planet {
     if (!this.isHome) return;
     this.data.sculpt = this.sculpt.some((x) => x) ? b64(new Uint8Array(this.sculpt.buffer)) : null;
     this.data.paint = this.paint.some((x) => x) ? b64(this.paint) : null;
+  }
+}
+// chunks of rock that break off a planet and tumble away
+const chunks = (() => {
+  const N = 400, im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .85, flatShading: true, emissive: 0x401000 }), N);
+  im.frustumCulled = false; scene.add(im);
+  const list = []; let next = 0; const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (let i = 0; i < N; i++) { im.setMatrixAt(i, zero); im.setColorAt(i, new THREE.Color(1, 1, 1)); list.push({ life: 0 }); }
+  return {
+    spawn(p, v, size, color, life = rnd(2.5, 4.5)) { const c = list[next]; Object.assign(c, { p: p.clone(), v, size, life, max: life, ax: new THREE.Vector3().randomDirection(), a: 0, w: rnd(2, 8) }); im.setColorAt(next, color); im.instanceColor.needsUpdate = true; next = (next + 1) % N; },
+    update(dt) {
+      let any = false;
+      list.forEach((c, i) => {
+        if (c.life <= 0) return; any = true; c.life -= dt;
+        c.v.multiplyScalar(1 - dt * .4); c.p.addScaledVector(c.v, dt); c.a += c.w * dt;
+        if (Math.random() < dt * 4) smoke.spawn(c.p, new THREE.Vector3(), .8, c.size * 1.6, SMOKE0, SMOKE1, 1.5, .5);
+        _q.setFromAxisAngle(c.ax, c.a);
+        im.setMatrixAt(i, c.life <= 0 ? zero : _m.compose(c.p, _q, _v.setScalar(c.size * Math.min(1, c.life / c.max * 3))));
+      });
+      if (any) im.instanceMatrix.needsUpdate = true;
+    },
+  };
+})();
+function breakOff(planet, n, count, size) {
+  const cols = planet.geo.attributes.color, base = planet.mesh.localToWorld(n.clone().multiplyScalar(planet.R)), out = n.clone().transformDirection(planet.mesh.matrixWorld);
+  for (let i = 0; i < count; i++) {
+    const u = (Math.random() * planet.U) | 0, c = new THREE.Color(cols.getX(u), cols.getY(u), cols.getZ(u)).lerp(SCORCH, .4);
+    const v = out.clone().multiplyScalar(planet.R * rnd(.6, 2.2)).add(new THREE.Vector3().randomDirection().multiplyScalar(planet.R * rnd(.2, .8)));
+    chunks.spawn(base.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(planet.R * size * .5)), v, planet.R * rnd(.015, .05) * (1 + size * 2), c);
   }
 }
 function orientOnPlanet(obj, planet, n, face) {
@@ -1297,19 +1401,30 @@ function makeBlackHole(size) {
 // main = the normal view. planet / design / build / hangar are full views with their own panel.
 const VIEWS = { planet: "info", design: "design", build: "build", hangar: "hangar" };
 const HANGAR_POS = new THREE.Vector3(7, 1.5, 4);
-const narrow = () => matchMedia("(max-width: 820px)").matches;
-let mode = "home", view = "main", camAnim = null, viewShift = 0;
-const sidePanel = () => mode === "home" && !narrow() && (view === "design" || view === "build" || view === "hangar");
-function fitDistance(radius) { // how far the camera must be so a ball of this size fits on screen
-  const v = THREE.MathUtils.degToRad(camera.fov) / 2;
-  const w = innerWidth - (sidePanel() ? 350 : 0) - 40, h = innerHeight - 150;
-  return radius / Math.sin(Math.min(Math.atan(Math.tan(v) * h / innerHeight), Math.atan(Math.tan(v) * w / innerHeight)));
+const narrow = () => matchMedia("(max-width: 600px)").matches;
+let mode = "home", view = "main", camAnim = null;
+const viewShift = new THREE.Vector2();
+function freeArea() { // the part of the screen that no panel or bar covers
+  let x0 = 0, x1 = innerWidth, y1 = $("dock").getBoundingClientRect().top - 8;
+  const y0 = 0;
+  if (mode === "home") {
+    const side = view !== "main" ? $("p-" + VIEWS[view]) : null;
+    if (side && !side.hidden) { const r = side.getBoundingClientRect(); if (r.right < innerWidth * .62) x0 = r.right + 8; else y1 = Math.min(y1, r.top - 8); }
+    for (const id of ["p-mail", "p-chat", "p-map"]) { const el = $(id); if (el.hidden || id === "p-map") continue; const r = el.getBoundingClientRect(); if (r.left > innerWidth * .5) x1 = Math.min(x1, r.left - 8); }
+    if (!$("zoom").hidden) x1 = Math.min(x1, $("zoom").getBoundingClientRect().left - 8);
+  }
+  return { x0, y0, x1, y1, w: Math.max(120, x1 - x0), h: Math.max(120, y1 - y0) };
+}
+function fitDistance(radius) { // how far the camera must be so a ball of this size fits in the free area
+  const v = THREE.MathUtils.degToRad(camera.fov) / 2, a = freeArea(), tv = Math.tan(v);
+  return radius * 1.06 / Math.sin(Math.min(Math.atan(tv * (a.h - 24) / innerHeight), Math.atan(tv * (a.w - 24) / innerHeight)));
 }
 function viewDistance() {
   if (view === "hangar") return fitDistance(.34 * state.ship.size + .12);
   return view === "main" ? fitDistance(home.R * 3.2) : fitDistance(home.R * 1.3);
 }
 function frameCamera(dur = .9) {
+  renderPanels();
   const hang = view === "hangar", target = hang ? HANGAR_POS.clone() : new THREE.Vector3(), dist = viewDistance();
   let dir = camera.position.clone().sub(controls.target).normalize();
   if (hang) dir.set(-.75, .4, 1).normalize();
@@ -1732,16 +1847,17 @@ function buildTags() {
 
 // ================= flying =================
 const keys = new Set(), vel = new THREE.Vector3(), head = new THREE.Quaternion();
+const turn = new THREE.Vector3();
 let wasBoost = false, orbitT = 0, weapon = "laser", aimPlanet = null, lastHitPlanet = null, lastHitAt = -99, warp = null;
 const lastShot = {}, aimPoint = new THREE.Vector3(), bolts = [];
 function startFlying() { // only switches to flight; the ship waits until you press W
   if (mode !== "home") return;
   setTool(null);
   view = "main"; for (const p of Object.values(VIEWS)) ui[p] = false; ui.map = ui.mail = false;
-  camAnim = null; viewShift = 0; camera.clearViewOffset();
+  camAnim = null; viewShift.set(0, 0); camera.clearViewOffset();
   mode = "fly"; document.body.classList.add("flying");
   controls.enabled = false; tip.hidden = true;
-  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion);
+  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion); turn.set(0, 0, 0); model.quaternion.identity();
   vel.set(0, 0, 0);
   aimNdc.set(0, 0); $("crosshair").style.left = "50%"; $("crosshair").style.top = "50%";
   $("flyHud").hidden = false; $("crosshair").hidden = false; $("weapons").hidden = false;
@@ -1845,17 +1961,14 @@ function hitSphere(p0, p1, center, radius) { // first point where the segment p0
   return p0.clone().addScaledVector(d, Math.max(0, t));
 }
 const _sphere = new THREE.Sphere();
-function updateAim() {
+function updateAim() { // the exact spot on whatever planet is under the cursor
   ray.setFromCamera(aimNdc, camera);
-  aimPlanet = null; let best = Infinity;
-  for (const p of planets) {
-    if (!p.alive) continue;
-    const hp = ray.ray.intersectSphere(_sphere.set(p.group.position, p.R * 1.02), new THREE.Vector3());
-    if (hp) { const d = hp.distanceTo(camera.position); if (d < best) { best = d; aimPlanet = p; aimPoint.copy(hp); } }
-  }
-  if (!aimPlanet) ray.ray.at(250, aimPoint);
+  const hit = ray.intersectObjects(planets.filter((p) => p.alive).map((p) => p.mesh), false)[0];
+  aimPlanet = hit ? hit.object.userData.planet : null;
+  if (hit) aimPoint.copy(hit.point); else ray.ray.at(300, aimPoint);
   $("crosshair").classList.toggle("lock", !!aimPlanet);
 }
+const aimTarget = () => (aimPlanet ? { p: aimPlanet, local: aimPlanet.mesh.worldToLocal(aimPoint.clone()) } : null);
 function nearestPlanet(maxDist) {
   let best = null, bd = maxDist;
   for (const p of planets) { if (!p.alive) continue; const d = ship.position.distanceTo(p.group.position) - p.R; if (d < bd) { bd = d; best = p; } }
@@ -1875,15 +1988,15 @@ function fireWeapon(kind) {
     const from = muzzleWorld(), dir = aimPoint.clone().sub(from).normalize();
     const m = new THREE.Mesh(new THREE.CylinderGeometry(.012 * sz, .012 * sz, .7, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, .5, .8) }));
     m.position.copy(from); m.quaternion.setFromUnitVectors(UP, dir); scene.add(m);
-    bolts.push({ kind, obj: m, v: dir.multiplyScalar(260).add(vel), life: 1.6 });
+    bolts.push({ kind, obj: m, v: dir.multiplyScalar(320), speed: 320, life: 2, target: aimTarget() });
     sfx.laser();
   } else if (kind === "missile") {
     const g = new THREE.Group();
     const b = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .16, 12), mats.metal); b.rotation.x = Math.PI / 2; g.add(b);
     const n = new THREE.Mesh(new THREE.ConeGeometry(.02, .06, 12), mats.flag); n.rotation.x = Math.PI / 2; n.position.z = .11; g.add(n);
     g.position.copy(muzzleWorld()); g.quaternion.copy(ship.quaternion); g.scale.setScalar(sz); scene.add(g);
-    const target = aimPlanet ? { p: aimPlanet, n: aimPlanet.mesh.worldToLocal(aimPoint.clone()).normalize() } : null;
-    bolts.push({ kind, obj: g, v: fwd.clone().multiplyScalar(35).add(vel), life: 6, target, speed: 90 });
+    const target = aimTarget();
+    bolts.push({ kind, obj: g, v: aimPoint.clone().sub(g.position).normalize().multiplyScalar(40).add(vel), life: 8, target, speed: 95 });
     sfx.missile();
   } else if (kind === "bomb") {
     const g = new THREE.Mesh(new THREE.SphereGeometry(.05 * sz, 20, 14), new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: .6, roughness: .3 }));
@@ -1895,16 +2008,16 @@ function fireWeapon(kind) {
   } else if (kind === "troops") {
     const tp = aimPlanet || nearestPlanet(90);
     if (!tp) { toast("No planet close enough for troops. Fly closer!"); lastShot[kind] = 0; return; }
-    const n = aimPlanet ? aimPlanet.mesh.worldToLocal(aimPoint.clone()).normalize() : tp.mesh.worldToLocal(ship.position.clone()).normalize();
+    const n = aimPlanet ? aimPlanet.mesh.worldToLocal(aimPoint.clone()) : tp.mesh.worldToLocal(ship.position.clone()).normalize().multiplyScalar(tp.R);
     const pod = new THREE.Mesh(new THREE.CapsuleGeometry(.04, .07, 6, 16), new THREE.MeshStandardMaterial({ color: 0x3d6b2e, metalness: .3, roughness: .5 }));
     pod.position.copy(ship.position); scene.add(pod);
-    bolts.push({ kind, obj: pod, v: fwd.clone().multiplyScalar(20).add(vel), life: 10, target: { p: tp, n }, speed: 45 });
+    bolts.push({ kind, obj: pod, v: fwd.clone().multiplyScalar(20).add(vel), life: 10, target: { p: tp, local: n }, speed: 45 });
     sfx.troops();
   }
 }
 function impact(b, planet, point) {
   const n = planet.mesh.worldToLocal(point.clone()).normalize();
-  const surf = planet.mesh.localToWorld(n.clone().multiplyScalar(planet.radiusAt(n)));
+  const surf = point.clone();
   const nrm = surf.clone().sub(planet.group.position).normalize();
   lastHitPlanet = planet; lastHitAt = clock(); planet.welcomed = true;
   if (b.kind === "laser") { spark(surf, .5); planet.hitAt(n, "laser"); if (Math.random() < .3) sfx.boom(.35, surf); }
@@ -1923,10 +2036,11 @@ function boltStep(dt) {
   for (let i = bolts.length - 1; i >= 0; i--) {
     const b = bolts[i]; b.life -= dt;
     const p0 = b.obj.position.clone();
-    if ((b.kind === "missile" || b.kind === "troops") && b.target && b.target.p.alive) { // homing
-      const want = b.target.p.mesh.localToWorld(b.target.n.clone().multiplyScalar(b.target.p.R)).sub(p0).normalize().multiplyScalar(b.speed);
-      b.v.lerp(want, Math.min(1, dt * 3));
-      b.obj.quaternion.setFromUnitVectors(FWD, b.v.clone().normalize());
+    if (b.target && b.target.p.alive) { // fly to the exact spot that was under the cursor
+      const tw = b.target.p.mesh.localToWorld(b.target.local.clone()), to = tw.clone().sub(p0), d = to.length();
+      if (d <= b.speed * dt * 1.05 || d < .05) { impact(b, b.target.p, tw); scene.remove(b.obj); bolts.splice(i, 1); continue; }
+      if (b.kind === "laser") { b.v.copy(to).multiplyScalar(b.speed / d); b.obj.quaternion.setFromUnitVectors(UP, to.divideScalar(d)); }
+      else { b.v.lerp(to.multiplyScalar(b.speed / d), Math.min(1, dt * (d < 6 ? 12 : 3))); b.obj.quaternion.setFromUnitVectors(FWD, b.v.clone().normalize()); }
     }
     if (b.kind === "missile") { smoke.spawn(p0, new THREE.Vector3().randomDirection().multiplyScalar(.2), rnd(.6, 1.2), rnd(.06, .12), SMOKE0, SMOKE1, 3, 1); fire.spawn(p0, b.v.clone().multiplyScalar(-.05), .15, .08, HOT, ORANGE); }
     if (b.kind === "bomb") {
@@ -1937,7 +2051,7 @@ function boltStep(dt) {
     b.obj.position.addScaledVector(b.v, dt);
     let gone = b.life <= 0;
     for (const p of planets) {
-      if (!p.alive) continue;
+      if (!p.alive || (b.target && b.target.p === p)) continue;
       const hit = hitSphere(p0, b.obj.position, p.group.position, p.R * 1.01);
       if (hit) { impact(b, p, hit); gone = true; break; }
     }
@@ -1946,28 +2060,25 @@ function boltStep(dt) {
 }
 function flyStep(dt) {
   const k = (c) => keys.has(c);
-  const boost = k("ShiftLeft") || k("ShiftRight"), size = state.ship.size;
-  const yaw = (k("KeyA") || k("ArrowLeft") ? 1 : 0) - (k("KeyD") || k("ArrowRight") ? 1 : 0);
-  const pitch = (k("ArrowDown") ? 1 : 0) - (k("ArrowUp") ? 1 : 0);
+  const boost = k("ShiftLeft") || k("ShiftRight"), size = state.ship.size, thrust = k("KeyW");
+  // steering: the further the cursor is from the middle, the faster you turn toward it
+  const dz = .05, axis = (v) => Math.sign(v) * Math.min(1, Math.max(0, Math.abs(v) - dz) / (1 - dz - .05));
+  const sx = axis(aimNdc.x), sy = axis(aimNdc.y + .18); // +.18: the ship sits low, so its "straight ahead" is a bit above it
+  const keyYaw = (k("KeyA") || k("ArrowLeft") ? 1 : 0) - (k("KeyD") || k("ArrowRight") ? 1 : 0);
+  const keyPitch = (k("ArrowDown") ? 1 : 0) - (k("ArrowUp") ? 1 : 0);
   const roll = (k("KeyE") ? 1 : 0) - (k("KeyQ") ? 1 : 0);
-  head.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch * dt * 1.3, yaw * dt * 1.6, roll * dt * 2.2)));
-  // the ship always points at whatever is under the cursor
-  updateAim();
-  const headUp = UP.clone().applyQuaternion(head);
-  _m.lookAt(aimPoint, ship.position, headUp);
-  ship.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(_m), 1 - Math.exp(-dt * 12));
-  // the camera slowly turns after the ship, so holding the cursor to one side keeps turning
-  // the view only turns after the ship while you are moving, so a still ship stays still
-  const follow = Math.min(1, vel.length() / 12) * (1.4 + Math.max(0, aimNdc.length() - .05) * 2.5);
-  head.slerp(ship.quaternion, 1 - Math.exp(-dt * follow));
-  model.rotation.z += ((-aimNdc.x * .7) - model.rotation.z) * Math.min(1, dt * 5);
-  const fwd = FWD.clone().applyQuaternion(ship.quaternion);
+  turn.lerp(new THREE.Vector3(-sy * 1.5 + keyPitch * 1.2, -sx * 2 + keyYaw * 1.6, roll * 2.2), Math.min(1, dt * 9));
+  head.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(turn.x * dt, turn.y * dt, turn.z * dt))).normalize();
+  ship.quaternion.copy(head);
+  // the ship leans toward the cursor so you can see where it is going
+  model.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(-sy * .3, -sx * .45, -sx * .65, "YXZ")), Math.min(1, dt * 8));
+  const headUp = UP.clone().applyQuaternion(head), fwd = FWD.clone().applyQuaternion(head);
   const max = boost ? 220 : 60, accel = boost ? 260 : 70;
-  if (k("KeyW")) vel.addScaledVector(fwd, accel * dt);
+  if (thrust) vel.addScaledVector(fwd, accel * dt);
   if (k("KeyS")) vel.multiplyScalar(Math.max(0, 1 - 4 * dt));
-  vel.lerp(fwd.clone().multiplyScalar(vel.length()), Math.min(1, dt * 2.5)); // fly where you point, less drifting
-  vel.multiplyScalar(Math.exp(-(k("KeyW") ? .35 : 1.6) * dt)); // let go of W and the ship slows to a stop
-  if (!k("KeyW") && vel.length() < .3) vel.set(0, 0, 0);
+  vel.lerp(fwd.clone().multiplyScalar(vel.length()), Math.min(1, dt * 3)); // fly where you point, little drifting
+  vel.multiplyScalar(Math.exp(-(thrust ? .35 : 1.6) * dt)); // let go of W and the ship slows to a stop
+  if (!thrust && vel.length() < .3) vel.set(0, 0, 0);
   if (vel.length() > max) vel.lerp(vel.clone().setLength(max), Math.min(1, dt * 3));
   ship.position.addScaledVector(vel, dt);
   for (const p of planets) { // bump off planets
@@ -1975,18 +2086,21 @@ function flyStep(dt) {
     const d = ship.position.clone().sub(p.group.position), min = p.R * 1.2 + ship.userData.radius;
     if (d.length() < min) { d.setLength(min); ship.position.copy(p.group.position).add(d); const nrm = d.normalize(); vel.addScaledVector(nrm, -vel.dot(nrm) * 1.6); }
   }
+  // camera: behind and above, looking ahead, so the whole ship sits at the bottom-middle of the screen
+  const L = ship.userData.len, dist = .5 + L * 3.6 + Math.min(.8, vel.length() / 200) * L * 2;
+  camera.position.copy(ship.position).addScaledVector(fwd, -dist).addScaledVector(headUp, dist * .32);
+  camera.up.copy(headUp);
+  camera.lookAt(ship.position.clone().addScaledVector(fwd, dist * 2.2).addScaledVector(headUp, dist * .28));
+  camera.updateMatrixWorld();
+  updateAim(); // after the camera moves, so shots go exactly under the cursor
   if ((firing && weapon === "laser") || k("Space")) fireWeapon("laser");
   if (firing && (weapon === "missile" || weapon === "bomb")) fireWeapon(weapon);
-  for (const f of ship.userData.flames) f.scale.set(1, (k("KeyW") ? (boost ? 3.2 : 1.7) : .7) + Math.random() * .35, 1);
-  if (boost && k("KeyW")) for (let i = 0; i < 3; i++) fire.spawn(ship.position.clone().addScaledVector(fwd, -.3 * size), fwd.clone().multiplyScalar(-8).add(new THREE.Vector3().randomDirection()), .3, .06 * size, C(state.ship.flame, 2), DARK);
-  // camera: behind and a little above, far enough to see the whole ship in the middle of the screen
-  const L = ship.userData.len, dist = .45 + L * 3.4 + Math.min(.8, vel.length() / 200) * L * 2;
-  camera.position.copy(ship.position).addScaledVector(FWD.clone().applyQuaternion(head), -dist).addScaledVector(headUp, dist * .16);
-  camera.up.copy(headUp);
-  camera.lookAt(ship.position.clone().addScaledVector(headUp, L * .12));
-  const boosting = boost && k("KeyW");
+  const moving = thrust || vel.length() > 2;
+  for (const f of ship.userData.flames) { f.visible = moving; f.scale.set(1, (thrust ? (boost ? 3.2 : 1.7) : .6 + vel.length() / 60) + Math.random() * .35, 1); }
+  if (boost && thrust) for (let i = 0; i < 3; i++) fire.spawn(ship.position.clone().addScaledVector(fwd, -.3 * size), fwd.clone().multiplyScalar(-8).add(new THREE.Vector3().randomDirection()), .3, .06 * size, C(state.ship.flame, 2), DARK);
+  const boosting = boost && thrust;
   if (boosting && !wasBoost) sfx.boostKick();
-  wasBoost = boosting; sfx.engine(k("KeyW") ? 1 : 0, boosting);
+  wasBoost = boosting; sfx.engine(thrust ? 1 : 0, boosting);
   camera.fov += ((boost && k("KeyW") ? 72 : 58) - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
   // HUD
   $("hudSpeed").textContent = fmt(vel.length() * 10);
@@ -2057,7 +2171,11 @@ $("attack").addEventListener("click", () => {
   scene.add(beam); addFx(.25, (k) => (beam.material.opacity = 1 - k), () => scene.remove(beam));
   setTimeout(() => { boom(hitW, 1.2); sfx.boom(1.5, hitW); home.hitAt(n, "missile"); }, 160);
 });
+$("resetAsk").addEventListener("click", () => { $("resetConfirm").hidden = false; $("resetAskRow").hidden = true; });
+$("resetNo").addEventListener("click", () => { $("resetConfirm").hidden = true; $("resetAskRow").hidden = false; });
 $("reset").addEventListener("click", () => {
+  $("resetConfirm").hidden = true; $("resetAskRow").hidden = false;
+  for (const p of planets) for (const im of Object.values(p.parts)) im.count = 0;
   state = defaults(); setNav(null); mapSel = null; mailPlanet = null; setTool(null); draftImg = ''; showSignPreview('');
   buildWorld(); buildShip(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); save(); setView("main");
   toast("Everything is back to the start");
@@ -2070,7 +2188,7 @@ function resize() {
   const sc = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(29)));
   fire.mat.uniforms.scale.value = smoke.mat.uniforms.scale.value = sc * renderer.getPixelRatio();
 }
-addEventListener("resize", resize); resize();
+addEventListener("resize", () => { resize(); if (mode === "home") frameCamera(.3); }); resize();
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const timer = new THREE.Clock();
 let mapTick = 0;
@@ -2085,6 +2203,7 @@ function frame() {
     if (p.remnant) p.remnant.rotation.y += dt * .05;
     if (p.dirty && clock() - p.lastBuild > .09) { p.rebuild(); p.placeDecor(); }
     if (p.alive && camera.position.distanceTo(p.group.position) < 60) p.updatePeople(dt, t);
+    if (p.alive && camera.position.distanceTo(p.group.position) < 160) p.leak(dt);
     if (p.alive && p.data.troops > 0) { // troops slowly take over a planet
       p.data.pop = Math.max(0, p.data.pop - p.data.maxPop * .0012 * p.data.troops * dt);
       if (Math.random() < dt * 2) afterDamage(p);
@@ -2096,7 +2215,7 @@ function frame() {
   else {
     if (view === "hangar") { ship.position.copy(HANGAR_POS); ship.rotation.set(0, -.5, 0); ship.scale.setScalar(1); model.rotation.z = 0; } // you spin it with the mouse
     else { orbitT += dt * .3; placeOrbit(orbitT); model.rotation.z = Math.sin(t) * .1; }
-    for (const f of ship.userData.flames) f.scale.set(1, .8 + Math.sin(t * 30) * .2, 1);
+    for (const f of ship.userData.flames) { f.visible = view !== "hangar"; f.scale.set(1, .8 + Math.sin(t * 30) * .2, 1); }
     if (camAnim) { // glide to the new view
       camAnim.t += realDt / camAnim.dur; const e = ss(0, 1, Math.min(1, camAnim.t));
       camera.position.lerpVectors(camAnim.p0, camAnim.p1, e); controls.target.lerpVectors(camAnim.t0, camAnim.t1, e);
@@ -2106,16 +2225,16 @@ function frame() {
     if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
   }
   boltStep(dt);
-  fire.update(dt); smoke.update(dt);
+  fire.update(dt); smoke.update(dt); chunks.update(dt);
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     f.update(Math.min(1, f.t / f.dur), dt);
     if (f.t >= f.dur) { fx.splice(i, 1); f.end?.(); }
   }
-  // slide the picture right when a panel covers the left side
-  const wantShift = sidePanel() ? 175 : 0;
-  viewShift = Math.abs(wantShift - viewShift) < .5 ? wantShift : viewShift + (wantShift - viewShift) * Math.min(1, realDt * 6);
-  if (viewShift > .5) camera.setViewOffset(innerWidth, innerHeight, -viewShift, 0, innerWidth, innerHeight);
+  // centre the picture in the free part of the screen, so panels never cover what you edit
+  const fa = freeArea(), want = mode === "home" ? new THREE.Vector2((fa.x0 + fa.x1) / 2 - innerWidth / 2, (fa.y0 + fa.y1) / 2 - innerHeight / 2) : new THREE.Vector2();
+  if (viewShift.distanceTo(want) < .5) viewShift.copy(want); else viewShift.lerp(want, Math.min(1, realDt * 6));
+  if (viewShift.lengthSq() > .25) camera.setViewOffset(innerWidth, innerHeight, -viewShift.x, -viewShift.y, innerWidth, innerHeight);
   else if (camera.view && camera.view.enabled) camera.clearViewOffset();
   updateTags();
   if (ui.map && (mapTick += realDt) > .3) { mapTick = 0; renderMap(); }
@@ -2128,7 +2247,7 @@ function frame() {
 buildWorld(); buildShip(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); renderPanels();
 { const dist = viewDistance(); camera.position.set(0, dist * .22, dist); }
 renderer.setAnimationLoop(frame);
-window.__tp = { camera, get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
+window.__tp = { camera, aimPoint, get aimPlanet() { return aimPlanet; }, get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
 </script>
 </body>
 </html>
