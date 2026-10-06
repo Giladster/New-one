@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tiny Planets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-screen 3D scene, glass HUD panels pinned to the corners. Single dark "deep space" look. */
+:root {
+  --void: #05060f;
+  --panel: rgba(14, 18, 38, 0.78);
+  --line: rgba(140, 170, 255, 0.18);
+  --text: #e6ebff;
+  --muted: #8d97c2;
+  --accent: #ffb547;
+  --cyan: #6fe3ff;
+  --danger: #ff5a6e;
+  --display: "Chakra Petch", "Trebuchet MS", sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--void); color: var(--text); font: 14px/1.45 var(--body); overflow: hidden; }
+canvas#scene { position: fixed; inset: 0; display: block; }
+.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(8px); }
+.label { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+#top { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; padding: 12px 16px; display: grid; gap: 6px; min-width: 240px; }
+#top h1 { margin: 0; font: 700 22px var(--display); letter-spacing: .02em; }
+#top .owner { color: var(--accent); font-family: var(--mono); font-size: 13px; }
+.hp { display: flex; align-items: center; gap: 8px; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+.hp .bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+.hp .fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--accent) 40%, #7dff9b); transition: width .4s; }
+
+#build { left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; max-width: calc(100% - 32px); }
+#build button, #notes button, #chat button { font: 500 13px var(--display); letter-spacing: .04em; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; cursor: pointer; }
+#build button:hover { background: rgba(255,255,255,.12); }
+#build button.on { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+#build button.attack { border-color: rgba(255,90,110,.5); color: var(--danger); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+#signText, #noteText, #chatText { font: 13px var(--body); color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 170px; }
+.hint { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: calc(86px + env(safe-area-inset-bottom, 0px)); font: 12px var(--mono); color: var(--cyan); pointer-events: none; text-align: center; }
+
+.side { width: 280px; padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+#notes { top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; }
+#chat { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: 16px; }
+.list { display: grid; gap: 6px; max-height: 170px; overflow-y: auto; }
+.msg { font-size: 13px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.04); }
+.msg b { font-family: var(--mono); font-weight: 500; color: var(--cyan); font-size: 12px; }
+.msg time { float: right; color: var(--muted); font: 11px var(--mono); }
+.row { display: flex; gap: 6px; }
+.row input { flex: 1; min-width: 0; width: auto !important; }
+
+@media (max-width: 760px) {
+  .side { width: auto; left: 16px; right: 16px !important; }
+  #notes { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+  #chat { display: none; }
+  #top { min-width: 0; }
+}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<section id="top" class="hud">
+  <span class="label">Your planet</span>
+  <h1 id="planetName">Kepler-7b</h1>
+  <span class="owner">owner: gilad</span>
+  <div class="hp"><span>HULL</span><div class="bar"><div class="fill" id="hpFill" style="width:100%"></div></div><span id="hpText">100%</span></div>
+</section>
+
+<section id="notes" class="hud side">
+  <span class="label">Notes left on your planet</span>
+  <div class="list" id="noteList"></div>
+  <div class="row"><input id="noteText" maxlength="80" placeholder="Leave a note…"><button id="noteSend">Leave</button></div>
+</section>
+
+<section id="chat" class="hud side">
+  <span class="label">Galaxy chat</span>
+  <div class="list" id="chatList"></div>
+  <div class="row"><input id="chatText" maxlength="120" placeholder="Say something…"><button id="chatSend">Send</button></div>
+</section>
+
+<div class="hint" id="hint">Drag to spin · scroll to zoom · pick a tool to build</div>
+
+<section id="build" class="hud">
+  <button data-tool="tower">Tower</button>
+  <button data-tool="sign">Sign</button>
+  <input id="signText" maxlength="18" value="HELLO SPACE" aria-label="Sign text">
+  <button data-tool="remove">Remove</button>
+  <button class="attack" id="attack">Test attack</button>
+  <button id="reset">Reset</button>
+</section>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// ---------- storage (local only for now; server comes later) ----------
+const KEY = "tinyplanets.v1";
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const defaults = () => ({
+  hp: 100,
+  craters: [],
+  decor: [
+    { type: "tower", n: [0.2, 0.95, 0.2] },
+    { type: "tower", n: [-0.5, 0.7, 0.5] },
+    { type: "sign", n: [0.55, 0.6, 0.58], text: "GILAD'S ROCK" },
+    { type: "sign", n: [0.1, 0.25, 0.95], text: "NO PARKING" },
+    { type: "tower", n: [0.8, 0.1, 0.55] },
+  ],
+  notes: [
+    { who: "nova_kid", text: "Nice towers! Mine has 12 now 😎", t: "yesterday" },
+    { who: "zork", text: "Sorry about the crater, wrong planet.", t: "2d ago" },
+  ],
+  chat: [
+    { who: "luna", text: "anyone seen the blue planet near sector 4?", t: "10:02" },
+    { who: "zork", text: "it's mine, don't shoot it pls", t: "10:03" },
+    { who: "nova_kid", text: "too late 💥", t: "10:04" },
+  ],
+});
+let state = load() || defaults();
+
+// ---------- scene ----------
+const canvas = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+camera.position.set(0, 1.2, 6.5);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.enablePan = false;
+controls.minDistance = 3; controls.maxDistance = 14;
+
+scene.add(new THREE.AmbientLight(0x6c78b8, 0.55));
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.2);
+sun.position.set(5, 3, 4); scene.add(sun);
+const rim = new THREE.DirectionalLight(0x6fe3ff, 0.6);
+rim.position.set(-6, -2, -4); scene.add(rim);
+
+// stars
+{
+  const g = new THREE.BufferGeometry(), N = 3000, p = new Float32Array(N * 3), c = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(300 + Math.random() * 500);
+    p.set([v.x, v.y, v.z], i * 3);
+    const tint = Math.random(); c.set(tint > .8 ? [1, .85, .6] : tint > .6 ? [.7, .85, 1] : [1, 1, 1], i * 3);
+  }
+  g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(c, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.6, vertexColors: true, sizeAttenuation: true })));
+}
+
+// far-away neighbour planets (other players)
+const neighbours = [
+  { pos: [-60, 18, -120], r: 6, col: 0x4f7cff },
+  { pos: [80, -25, -160], r: 9, col: 0xd86bff },
+  { pos: [40, 40, -220], r: 4, col: 0x7dff9b },
+];
+for (const n of neighbours) {
+  const m = new THREE.Mesh(new THREE.IcosahedronGeometry(n.r, 3), new THREE.MeshStandardMaterial({ color: n.col, flatShading: true, roughness: .9 }));
+  m.position.set(...n.pos); scene.add(m);
+}
+
+// ---------- planet ----------
+const R = 1.6;
+function hash(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
+function noise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  let r = 0;
+  for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) for (let dz = 0; dz < 2; dz++)
+    r += hash(xi + dx, yi + dy, zi + dz) * (dx ? u : 1 - u) * (dy ? v : 1 - v) * (dz ? w : 1 - w);
+  return r;
+}
+const fbm = (v) => noise(v.x * 1.6, v.y * 1.6, v.z * 1.6) * .6 + noise(v.x * 4, v.y * 4, v.z * 4) * .3 + noise(v.x * 9, v.y * 9, v.z * 9) * .1;
+
+const planetGeo = new THREE.IcosahedronGeometry(R, 24);
+const basePos = planetGeo.attributes.position.array.slice();
+planetGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(basePos.length), 3));
+const planet = new THREE.Mesh(planetGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: .95 }));
+scene.add(planet);
+
+const C = {
+  sea: new THREE.Color(0x2a5bd7), shore: new THREE.Color(0xe8c98a), grass: new THREE.Color(0x4fbf6a),
+  forest: new THREE.Color(0x2f8a52), rock: new THREE.Color(0x8a7f8f), snow: new THREE.Color(0xf4f6ff), scorch: new THREE.Color(0x2a1a14),
+};
+function heightAt(n) {
+  let h = fbm(n);
+  h = h < .45 ? .45 : h; // flat sea
+  let crater = 0;
+  for (const c of state.craters) {
+    const d = n.distanceTo(new THREE.Vector3(...c.n));
+    if (d < c.size) crater = Math.max(crater, (1 - d / c.size) ** 1.5);
+  }
+  return { h, crater };
+}
+function rebuildPlanet() {
+  const pos = planetGeo.attributes.position, col = planetGeo.attributes.color, v = new THREE.Vector3(), cc = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromArray(basePos, i * 3).normalize();
+    const { h, crater } = heightAt(v);
+    const elev = (h - .45) * .55 - crater * .22;
+    pos.setXYZ(i, ...v.clone().multiplyScalar(R * (1 + elev)).toArray());
+    if (h <= .45) cc.copy(C.sea);
+    else if (h < .48) cc.copy(C.shore);
+    else if (h < .58) cc.copy(C.grass);
+    else if (h < .66) cc.copy(C.forest);
+    else if (h < .72) cc.copy(C.rock);
+    else cc.copy(C.snow);
+    if (Math.abs(v.y) > .9) cc.lerp(C.snow, .85);
+    if (crater > 0) cc.lerp(C.scorch, Math.min(1, crater * 1.6));
+    col.setXYZ(i, cc.r, cc.g, cc.b);
+  }
+  pos.needsUpdate = col.needsUpdate = true;
+  planetGeo.computeVertexNormals();
+}
+const surfaceRadius = (n) => { const { h, crater } = heightAt(n); return R * (1 + (h - .45) * .55 - crater * .22); };
+rebuildPlanet();
+
+// atmosphere glow
+const atmo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.18, 64, 64), new THREE.ShaderMaterial({
+  side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  vertexShader: `varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vec4 p=modelViewMatrix*vec4(position,1.); vP=p.xyz; gl_Position=projectionMatrix*p; }`,
+  fragmentShader: `varying vec3 vN; varying vec3 vP; void main(){ float f=pow(1.0-abs(dot(vN,normalize(-vP))),2.0); gl_FragColor=vec4(0.35,0.75,1.0,1.0)*f*0.9; }`,
+}));
+scene.add(atmo);
+
+// ---------- decorations ----------
+const decorGroup = new THREE.Group(); planet.add(decorGroup);
+function signTexture(text) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = "#f3e2bf"; g.fillRect(0, 0, 256, 128);
+  g.strokeStyle = "#7a4e2a"; g.lineWidth = 10; g.strokeRect(5, 5, 246, 118);
+  g.fillStyle = "#3a2312"; g.textAlign = "center"; g.textBaseline = "middle";
+  let size = 44; do { g.font = `700 ${size}px "Chakra Petch", sans-serif`; size -= 2; } while (g.measureText(text).width > 220 && size > 14);
+  g.fillText(text, 128, 66);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const wood = new THREE.MeshStandardMaterial({ color: 0x7a4e2a, roughness: 1 });
+const metal = new THREE.MeshStandardMaterial({ color: 0xc9d2ea, metalness: .6, roughness: .35, flatShading: true });
+const lamp = new THREE.MeshBasicMaterial({ color: 0xffb547 });
+function makeTower() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .07, .38, 8), metal); body.position.y = .19;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(.07, .015, 6, 16), metal); ring.rotation.x = Math.PI / 2; ring.position.y = .3;
+  const top = new THREE.Mesh(new THREE.ConeGeometry(.06, .12, 8), metal); top.position.y = .44;
+  const light = new THREE.Mesh(new THREE.SphereGeometry(.025, 8, 8), lamp); light.position.y = .52; light.userData.blink = Math.random() * 6;
+  g.add(body, ring, top, light); return g;
+}
+function makeSign(text) {
+  const g = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.BoxGeometry(.025, .22, .025), wood); post.position.y = .11;
+  const board = new THREE.Mesh(new THREE.BoxGeometry(.26, .13, .018), [wood, wood, wood, wood, new THREE.MeshStandardMaterial({ map: signTexture(text), roughness: 1 }), wood]);
+  board.position.y = .25;
+  g.add(post, board); g.scale.setScalar(1.5); return g;
+}
+function placeDecor(d) {
+  const n = new THREE.Vector3(...d.n).normalize();
+  const obj = d.type === "tower" ? makeTower() : makeSign(d.text || "");
+  obj.position.copy(n).multiplyScalar(surfaceRadius(n) - .01);
+  if (d.type === "sign") {
+    // turn the board so its front faces the way the player was looking when they placed it
+    const face = new THREE.Vector3(...(d.face || [0, 0.2, 1]));
+    const z = face.sub(n.clone().multiplyScalar(face.dot(n))).normalize();
+    const x = n.clone().cross(z);
+    obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, n, z));
+  } else {
+    obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
+    obj.rotateY(hash(n.x, n.y, n.z) * Math.PI * 2);
+  }
+  obj.userData.decor = d;
+  decorGroup.add(obj);
+}
+function rebuildDecor() { decorGroup.clear(); state.decor.forEach(placeDecor); }
+rebuildDecor();
+
+// ---------- a ship parked in orbit ----------
+const ship = new THREE.Group();
+{
+  const hull = new THREE.Mesh(new THREE.ConeGeometry(.08, .32, 6), metal); hull.rotation.z = -Math.PI / 2;
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(.12, .015, .3), new THREE.MeshStandardMaterial({ color: 0xffb547, flatShading: true }));
+  wing.position.x = -.05;
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(.04, .14, 8), new THREE.MeshBasicMaterial({ color: 0x6fe3ff }));
+  flame.rotation.z = Math.PI / 2; flame.position.x = -.22; ship.userData.flame = flame;
+  ship.add(hull, wing, flame);
+}
+scene.add(ship);
+
+// ---------- tools ----------
+let tool = null;
+const hint = document.getElementById("hint");
+const hints = { tower: "Click the planet to place a tower", sign: "Click the planet to place your sign", remove: "Click a tower or sign to remove it" };
+document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
+  tool = tool === b.dataset.tool ? null : b.dataset.tool;
+  document.querySelectorAll("[data-tool]").forEach(x => x.classList.toggle("on", x.dataset.tool === tool));
+  hint.textContent = tool ? hints[tool] : "Drag to spin · scroll to zoom · pick a tool to build";
+}));
+
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let down = null;
+canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
+canvas.addEventListener("pointerup", e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !tool) return;
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  if (tool === "remove") {
+    const hit = ray.intersectObject(decorGroup, true)[0];
+    if (!hit) return;
+    let o = hit.object; while (o.parent !== decorGroup) o = o.parent;
+    state.decor = state.decor.filter(d => d !== o.userData.decor);
+  } else {
+    const hit = ray.intersectObject(planet, false)[0];
+    if (!hit) return;
+    const n = planet.worldToLocal(hit.point.clone()).normalize();
+    const d = { type: tool, n: n.toArray().map(x => +x.toFixed(4)) };
+    if (tool === "sign") {
+      d.text = (document.getElementById("signText").value || "HI").toUpperCase();
+      d.face = planet.worldToLocal(camera.position.clone()).normalize().toArray().map(x => +x.toFixed(4));
+    }
+    state.decor.push(d);
+  }
+  rebuildDecor(); save();
+});
+
+// ---------- attack demo ----------
+const fx = [];
+function setHp() {
+  document.getElementById("hpFill").style.width = state.hp + "%";
+  document.getElementById("hpText").textContent = state.hp + "%";
+}
+setHp();
+document.getElementById("attack").addEventListener("click", () => {
+  if (state.hp <= 0) return;
+  const target = new THREE.Vector3().randomDirection();
+  // aim at the side facing the camera so the hit is visible
+  const toCam = planet.worldToLocal(camera.position.clone()).normalize();
+  target.lerp(toCam, .7).normalize();
+  const worldHit = planet.localToWorld(target.clone().multiplyScalar(R));
+  const from = ship.position.clone();
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, 1, 6), new THREE.MeshBasicMaterial({ color: 0xff5a6e }));
+  const mid = from.clone().add(worldHit).multiplyScalar(.5);
+  beam.position.copy(mid); beam.scale.y = from.distanceTo(worldHit);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldHit.clone().sub(from).normalize());
+  scene.add(beam); fx.push({ obj: beam, life: .25 });
+
+  setTimeout(() => {
+    state.craters.push({ n: target.toArray().map(x => +x.toFixed(4)), size: .18 + Math.random() * .1 });
+    state.decor = state.decor.filter(d => new THREE.Vector3(...d.n).normalize().distanceTo(target) > .2);
+    state.hp = Math.max(0, state.hp - 10);
+    rebuildPlanet(); rebuildDecor(); setHp(); save();
+    const boom = new THREE.Mesh(new THREE.SphereGeometry(.1, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true }));
+    boom.position.copy(planet.localToWorld(target.clone().multiplyScalar(R)));
+    scene.add(boom); fx.push({ obj: boom, life: .6, grow: true });
+    if (state.hp <= 0) hint.textContent = "Planet destroyed. Everyone will see it next time they log in.";
+  }, 180);
+});
+document.getElementById("reset").addEventListener("click", () => { state = defaults(); rebuildPlanet(); rebuildDecor(); setHp(); renderLists(); save(); });
+
+// ---------- notes + chat ----------
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function renderLists() {
+  for (const [id, arr] of [["noteList", state.notes], ["chatList", state.chat]]) {
+    const el = document.getElementById(id);
+    el.innerHTML = arr.map(m => `<div class="msg"><time>${esc(m.t)}</time><b>${esc(m.who)}</b><br>${esc(m.text)}</div>`).join("");
+    el.scrollTop = el.scrollHeight;
+  }
+}
+renderLists();
+const now = () => new Date().toTimeString().slice(0, 5);
+function hook(inputId, btnId, arr) {
+  const input = document.getElementById(inputId);
+  const send = () => { const t = input.value.trim(); if (!t) return; state[arr].push({ who: "gilad", text: t, t: now() }); input.value = ""; renderLists(); save(); };
+  document.getElementById(btnId).addEventListener("click", send);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+}
+hook("noteText", "noteSend", "notes");
+hook("chatText", "chatSend", "chat");
+
+// ---------- loop ----------
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta(), t = clock.elapsedTime;
+  if (!reduce) planet.rotation.y += dt * .05;
+  const a = t * .35, orbit = 2.7;
+  ship.position.set(Math.cos(a) * orbit, Math.sin(a * .7) * .5 + .4, Math.sin(a) * orbit);
+  ship.lookAt(Math.cos(a + .1) * orbit, Math.sin((a + .1) * .7) * .5 + .4, Math.sin(a + .1) * orbit);
+  ship.rotateY(Math.PI / 2);
+  ship.userData.flame.scale.y = .8 + Math.sin(t * 30) * .2;
+  decorGroup.traverse(o => { if (o.userData.blink !== undefined) o.visible = Math.sin(t * 3 + o.userData.blink) > -.3; });
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i]; f.life -= dt;
+    if (f.grow) { f.obj.scale.multiplyScalar(1 + dt * 6); f.obj.material.opacity = Math.max(0, f.life / .6); }
+    if (f.life <= 0) { scene.remove(f.obj); fx.splice(i, 1); }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
