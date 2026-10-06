@@ -122,11 +122,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 #crosshair::after { inset: 13px; background: var(--cyan); border: none; }
 #crosshair.lock::before { border-color: var(--danger); }
 #crosshair.lock::after { background: var(--danger); }
-#weapons { left: 16px; right: 16px; margin-inline: auto; width: max-content; max-width: calc(100% - 32px); flex-wrap: wrap; justify-content: center; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); padding: 6px; display: flex; gap: 6px; }
+#weapons { left: 16px; flex-direction: column; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 6px; display: flex; gap: 6px; }
 #weapons button { position: relative; overflow: hidden; display: grid; gap: 1px; padding: 5px 10px; text-align: center; min-width: 74px; }
 #weapons button small { font: 10px var(--mono); color: inherit; opacity: .7; }
 #weapons .cd { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--cyan); }
-#p-help { left: 16px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 250px; }
+#p-help { right: 16px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 250px; }
 .keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 12px; }
 kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); background: rgba(255,255,255,.06); justify-self: start; }
 #pad { position: fixed; z-index: 2; right: 16px; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); display: none; grid-template-columns: repeat(2, 64px); gap: 6px; }
@@ -2063,7 +2063,7 @@ function flyStep(dt) {
   const boost = k("ShiftLeft") || k("ShiftRight"), size = state.ship.size, thrust = k("KeyW");
   // steering: the further the cursor is from the middle, the faster you turn toward it
   const dz = .05, axis = (v) => Math.sign(v) * Math.min(1, Math.max(0, Math.abs(v) - dz) / (1 - dz - .05));
-  const sx = axis(aimNdc.x), sy = axis(aimNdc.y + .18); // +.18: the ship sits low, so its "straight ahead" is a bit above it
+  const sx = axis(aimNdc.x), sy = axis(aimNdc.y);
   const keyYaw = (k("KeyA") || k("ArrowLeft") ? 1 : 0) - (k("KeyD") || k("ArrowRight") ? 1 : 0);
   const keyPitch = (k("ArrowDown") ? 1 : 0) - (k("ArrowUp") ? 1 : 0);
   const roll = (k("KeyE") ? 1 : 0) - (k("KeyQ") ? 1 : 0);
@@ -2088,9 +2088,9 @@ function flyStep(dt) {
   }
   // camera: behind and above, looking ahead, so the whole ship sits at the bottom-middle of the screen
   const L = ship.userData.len, dist = .5 + L * 3.6 + Math.min(.8, vel.length() / 200) * L * 2;
-  camera.position.copy(ship.position).addScaledVector(fwd, -dist).addScaledVector(headUp, dist * .32);
+  camera.position.copy(ship.position).addScaledVector(fwd, -dist).addScaledVector(headUp, dist * .22);
   camera.up.copy(headUp);
-  camera.lookAt(ship.position.clone().addScaledVector(fwd, dist * 2.2).addScaledVector(headUp, dist * .28));
+  camera.lookAt(ship.position.clone().addScaledVector(fwd, dist * 3.2).addScaledVector(headUp, dist * .2));
   camera.updateMatrixWorld();
   updateAim(); // after the camera moves, so shots go exactly under the cursor
   if ((firing && weapon === "laser") || k("Space")) fireWeapon("laser");
