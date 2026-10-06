@@ -52,7 +52,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .row input[type=text] { flex: 1; }
 .small { font-size: 12px; color: var(--muted); }
 
-#p-info { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 270px; gap: 6px; }
+#p-info { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 290px; gap: 6px; }
 #p-info h1 { margin: 0; font: 700 22px var(--display); letter-spacing: .02em; display: flex; align-items: center; gap: 6px; }
 #p-info h1 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #editName { padding: 2px 7px; font-size: 13px; }
@@ -91,6 +91,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 #dock { left: 16px; right: 16px; margin-inline: auto; width: max-content; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 32px); }
 #dock .sep { width: 1px; background: var(--line); margin: 2px; }
+#zoom { right: 16px; top: 50%; transform: translateY(-50%); padding: 6px; display: grid; gap: 6px; }
+#zoom button { width: 42px; height: 42px; padding: 0; font-size: 22px; line-height: 1; }
+.filebtn { font: 500 13px var(--display); letter-spacing: .04em; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
+.filebtn:hover { background: rgba(255,255,255,.12); }
+#signPreview { height: 34px; max-width: 80px; border-radius: 5px; border: 1px solid var(--line); object-fit: cover; }
 
 .hint { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: calc(72px + env(safe-area-inset-bottom, 0px)); font: 12px var(--mono); color: var(--cyan); pointer-events: none; text-align: center; width: max-content; max-width: calc(100% - 32px); text-shadow: 0 1px 3px #000; }
 #tip { position: fixed; z-index: 3; pointer-events: none; padding: 6px 9px; font: 12px var(--mono); border-radius: 8px; transform: translate(14px, 14px); white-space: nowrap; }
@@ -142,7 +147,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 <canvas id="scene"></canvas>
 
 <section id="p-info" class="hud panel" data-panel="info">
-  <div class="ph"><span class="label">Your planet</span><button class="x" data-close="info" aria-label="Close planet info">×</button></div>
+  <div class="ph"><span class="label">Your planet</span><button class="x" data-close="view" aria-label="Close planet info">×</button></div>
   <h1><span id="planetName">Kepler-7b</span><button id="editName" aria-label="Rename planet">✎</button></h1>
   <div class="row" id="renameRow" hidden><input id="renameInput" type="text" maxlength="20" aria-label="New planet name"><button id="renameSave">Save</button></div>
   <span class="owner" id="homeOwner">owner: gilad</span>
@@ -152,15 +157,21 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 </section>
 
 <section id="p-build" class="hud panel tool" data-panel="build" hidden>
-  <div class="ph"><span class="label">Decorate</span><button class="x" data-close="build" aria-label="Close decorate">×</button></div>
+  <div class="ph"><span class="label">Decorate</span><button class="x" data-close="view" aria-label="Close decorate">×</button></div>
   <span class="small">Pick an item, move over your planet to see where it goes, then click to place it.</span>
-  <div class="row"><button data-tool="tower">Tower</button><button data-tool="house">House</button><button data-tool="sign">Sign</button><button data-tool="remove" class="danger">Eraser</button></div>
-  <div class="group"><span class="label">Sign text</span><input id="signText" type="text" maxlength="18" value="HELLO SPACE" aria-label="Sign text"></div>
+  <div class="row"><button data-tool="tower">Tower</button><button data-tool="house">House</button><button data-tool="sign">Sign</button><button data-tool="editsign">Edit a sign</button><button data-tool="remove" class="danger">Eraser</button></div>
+  <div class="group" id="signBox">
+    <span class="label" id="signBoxTitle">New sign</span>
+    <input id="signText" type="text" maxlength="24" value="HELLO SPACE" aria-label="Sign text">
+    <label class="slider">Sign size<input type="range" id="signSize" min="0.5" max="3" step="0.05" value="1"></label>
+    <div class="row"><label class="filebtn" for="signImg">Add picture</label><input id="signImg" type="file" accept="image/*" hidden><button id="signImgClear">No picture</button><img id="signPreview" alt="Sign picture" hidden></div>
+    <div class="row" id="signDoneRow" hidden><button class="go" id="signDone">Done editing</button></div>
+  </div>
   <div class="row"><button class="danger" id="attack">Test attack</button><button id="reset">Reset whole game</button></div>
 </section>
 
 <section id="p-design" class="hud panel tool" data-panel="design" hidden>
-  <div class="ph"><span class="label">Design your planet</span><button class="x" data-close="design" aria-label="Close design">×</button></div>
+  <div class="ph"><span class="label">Design your planet</span><button class="x" data-close="view" aria-label="Close design">×</button></div>
   <div class="group"><span class="label">Name</span><input id="nameInput" type="text" maxlength="20" aria-label="Planet name"></div>
   <div class="group"><span class="label">Templates</span><div class="templates" id="templates"></div></div>
   <div class="group"><span class="label">Colors</span>
@@ -191,7 +202,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 </section>
 
 <section id="p-hangar" class="hud panel tool" data-panel="hangar" hidden>
-  <div class="ph"><span class="label">Hangar · build your ship</span><button class="x" data-close="hangar" aria-label="Close hangar">×</button></div>
+  <div class="ph"><span class="label">Hangar · build your ship</span><button class="x" data-close="view" aria-label="Close hangar">×</button></div>
   <div class="group"><span class="label">Quick ships</span><div class="choice" id="presets"></div></div>
   <div class="group"><span class="label">Ship name</span><input id="shipName" type="text" maxlength="18" aria-label="Ship name"></div>
   <label class="slider">Size<input type="range" id="shipSize" min="0.6" max="3" step="0.05"></label>
@@ -239,7 +250,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <kbd>B</kbd><span>drop bomb</span>
     <kbd>T</kbd><span>send troops</span>
     <kbd>M</kbd><span>mailbox of the planet you look at</span>
-    <kbd>Esc</kbd><span>land through a black hole</span>
+    <kbd>Esc</kbd><span>go home through a black hole</span>
   </div>
 </section>
 
@@ -266,18 +277,21 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <button data-k="KeyB">BOMB</button><button data-k="KeyT">TROOPS</button>
 </div>
 
+<div id="zoom" class="hud" hidden><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
+
 <nav id="dock" class="hud" aria-label="Menus">
-  <button data-open="info">Planet</button>
-  <button data-open="design" data-home>Design</button>
-  <button data-open="build" data-home>Decorate</button>
-  <button data-open="hangar" data-home>Hangar</button>
+  <button id="homeBtn">⌂ Home</button>
+  <button data-view="planet" data-home>Planet</button>
+  <button data-view="design" data-home>Design</button>
+  <button data-view="build" data-home>Decorate</button>
+  <button data-view="hangar" data-home>Hangar</button>
   <button data-open="map">Map</button>
   <button data-open="mail">Mail</button>
-  <button data-open="chat">Chat</button>
+  <button data-open="chat" data-home>Chat</button>
   <button data-open="help" data-fly>Controls</button>
   <button id="soundBtn">Sound</button>
-  <span class="sep"></span>
-  <button class="go" id="flyBtn">Fly</button>
+  <span class="sep" data-home></span>
+  <button class="go" id="flyBtn" data-home>Fly</button>
 </nav>
 
 <script type="importmap">
@@ -343,7 +357,7 @@ const DAMAGE = { // size = blast radius on the planet (radians), hp = health los
 };
 
 // ================= state =================
-const KEY = "tinyplanets.v3", UIKEY = "tinyplanets.ui3";
+const KEY = "tinyplanets.v3", UIKEY = "tinyplanets.ui4";
 const load = (k) => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const OTHERS = [
@@ -398,43 +412,173 @@ function migrate() { // keep the planet and ship made in the older version
 }
 let state = load(KEY) || migrate();
 delete state.ship.label;
-let ui = load(UIKEY) || { info: true, mail: true, chat: true, help: true, muted: false };
+let ui = load(UIKEY) || { mail: true, chat: true, help: false, muted: false };
+for (const k of ["info", "design", "build", "hangar", "map"]) ui[k] = false; // every visit starts in the main view
 let saveTimer = 0;
 const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { for (const p of planets) p.pack(); store(KEY, state); }, 400); };
 const saveUi = () => store(UIKEY, ui);
 
-// ================= sound (made in the browser, no files) =================
+// ================= sound (all made in the browser, no files) =================
 const sfx = (() => {
-  let ac = null, master = null, nbuf = null, lastLaser = 0;
-  const ctx = () => { if (!ac) { try { ac = new AudioContext(); master = ac.createGain(); master.gain.value = .45; master.connect(ac.destination); } catch { ac = null; } } return ac; };
-  const on = () => !ui.muted && ctx() && ac.state === "running";
-  function tone(f0, f1, dur, type = "sine", vol = .1, delay = 0) {
-    if (!on()) return; const t = ac.currentTime + delay;
-    const o = ac.createOscillator(), g = ac.createGain(); o.type = type;
-    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    o.connect(g).connect(master); o.start(t); o.stop(t + dur + .05);
+  let ac = null, master = null, dry = null, verb = null, nbuf = null, lastLaser = 0, eng = null;
+  const ctx = () => {
+    if (ac) return ac;
+    try {
+      ac = new AudioContext();
+      master = ac.createGain(); master.gain.value = ui.muted ? 0 : .7;
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 5; comp.attack.value = .003; comp.release.value = .25;
+      master.connect(comp).connect(ac.destination);
+      dry = ac.createGain(); dry.connect(master);
+      verb = ac.createConvolver(); verb.buffer = impulse(4, 2.4);
+      const wet = ac.createGain(); wet.gain.value = .55; verb.connect(wet).connect(master);
+    } catch { ac = null; }
+    return ac;
+  };
+  function impulse(sec, decay) { // a big empty hall, for the space echo
+    const n = ac.sampleRate * sec, b = ac.createBuffer(2, n, ac.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay); }
+    return b;
   }
-  function burst(dur, vol, f0, f1) {
-    if (!on()) return; const t = ac.currentTime;
-    if (!nbuf) { nbuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-    const s = ac.createBufferSource(); s.buffer = nbuf; s.loop = true;
-    const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + .05);
+  const ok = () => ctx() && ac.state === "running" && !ui.muted;
+  function noiseBuf() {
+    if (!nbuf) { nbuf = ac.createBuffer(1, ac.sampleRate * 3, ac.sampleRate); const d = nbuf.getChannelData(0); let b = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; b = .97 * b + .03 * w; d[i] = w * .6 + b * 3; } }
+    return nbuf;
+  }
+  function out(node, vol, rev = .3) {
+    const g = ac.createGain(); g.gain.value = vol; node.connect(g); g.connect(dry);
+    if (rev) { const s = ac.createGain(); s.gain.value = rev; g.connect(s); s.connect(verb); }
+    return g;
+  }
+  function env(g, t, a, d, peak = 1) { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); return g; }
+  function osc(type, f0, f1, t, dur, detune = 0) {
+    const o = ac.createOscillator(); o.type = type; o.detune.value = detune;
+    o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    o.start(t); o.stop(t + dur + .2); return o;
+  }
+  function noise(t, dur, rate = 1) { const s = ac.createBufferSource(); s.buffer = noiseBuf(); s.loop = true; s.playbackRate.value = rate; s.start(t, Math.random() * 2); s.stop(t + dur + .2); return s; }
+  function filt(type, f0, f1, t, dur, q = 1) { const f = ac.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); return f; }
+  function shaper(k) { const w = ac.createWaveShaper(), c = new Float32Array(2048); for (let i = 0; i < 2048; i++) c[i] = Math.tanh((i / 1024 - 1) * k); w.curve = c; w.oversample = "2x"; return w; }
+  const near = (at) => (at ? 1 / (1 + Math.max(0, camera.position.distanceTo(at) - 4) / 10) : 1);
+  const gain = () => ac.createGain();
+
+  function explosion(size, at, len) { // sharp crack, rolling body, deep thump
+    if (!ok()) return;
+    const t = ac.currentTime, v = Math.min(1.2, .3 * size) * near(at); if (v < .01) return;
+    const dur = len || .7 + size * .55;
+    const body = noise(t, dur, .7), lp = filt("lowpass", 5000, 70, t, dur * .9, .6), g1 = env(gain(), t, .004, dur);
+    body.connect(lp).connect(shaper(3)).connect(g1); out(g1, v, .55);
+    const sub = osc("sine", 95, 24, t, dur * .8), g2 = env(gain(), t, .003, dur * .8); sub.connect(g2); out(g2, v * 1.3, .25);
+    const crack = noise(t, .15, 1.4), hp = filt("highpass", 2200, 900, t, .15), g3 = env(gain(), t, .001, .14); crack.connect(hp).connect(g3); out(g3, v * .7, .35);
+  }
+  function startLoops() { // deep space hum, slow wind, the ship engine
+    if (eng || !ac) return;
+    const t = ac.currentTime + .05, LONG = 1e6;
+    // drone
+    const dl = filt("lowpass", 240, 240, t, 1, .8), dg = gain(); dg.gain.value = 0; dg.gain.setTargetAtTime(.11, t, 3);
+    for (const [type, f, d] of [["sine", 55, 0], ["sine", 55, 9], ["triangle", 82.4, -6], ["sawtooth", 27.5, 3]]) { const o = osc(type, f, f, t, LONG, d); const og = gain(); og.gain.value = type === "sawtooth" ? .25 : .6; o.connect(og).connect(dl); }
+    const lfo = osc("sine", .05, .05, t, LONG), lg = gain(); lg.gain.value = 140; lfo.connect(lg).connect(dl.frequency);
+    dl.connect(dg); out(dg, 1, .7);
+    // wind
+    const wn = noise(t, LONG, .5), wb = filt("bandpass", 420, 420, t, 1, .7), wg = gain(); wg.gain.value = 0; wg.gain.setTargetAtTime(.05, t, 4);
+    const wl = osc("sine", .031, .031, t, LONG), wlg = gain(); wlg.gain.value = 260; wl.connect(wlg).connect(wb.frequency);
+    wn.connect(wb).connect(wg); out(wg, 1, .9);
+    setInterval(() => { // far-away shimmer now and then
+      if (!ok() || Math.random() < .35) return;
+      const t2 = ac.currentTime, f = [392, 523, 587, 659, 784, 988][(Math.random() * 6) | 0];
+      const o = osc("sine", f, f * .995, t2, 7), g = gain(); g.gain.setValueAtTime(.0001, t2); g.gain.exponentialRampToValueAtTime(1, t2 + 2.5); g.gain.exponentialRampToValueAtTime(.0001, t2 + 7);
+      o.connect(g); out(g, .012, 1.2);
+    }, 9000);
+    // engine (silent until flying)
+    const en = noise(t, LONG, .6), el = filt("lowpass", 260, 260, t, 1, .9);
+    const saw = osc("sawtooth", 46, 46, t, LONG), sawG = gain(); sawG.gain.value = .35;
+    const eg = gain(); eg.gain.value = 0;
+    en.connect(el); saw.connect(sawG).connect(el); el.connect(shaper(2)).connect(eg); out(eg, 1, .15);
+    const rn = noise(t, LONG, 1), rb = filt("bandpass", 700, 700, t, 1, .9), rg = gain(); rg.gain.value = 0;
+    rn.connect(rb).connect(shaper(5)).connect(rg); out(rg, 1, .25);
+    eng = { eg, el, saw, rg, rb };
   }
   return {
-    unlock() { const c = ctx(); if (c && c.state === "suspended") c.resume(); },
-    laser() { const t = clock(); if (t - lastLaser < .05) return; lastLaser = t; tone(1700 + Math.random() * 300, 380, .07, "square", .022); },
-    missile() { burst(.6, .12, 2500, 500); tone(300, 900, .5, "sawtooth", .02); },
-    bomb() { tone(900, 120, .8, "triangle", .06); },
-    troops() { tone(500, 500, .08, "square", .04); tone(700, 700, .08, "square", .04, .1); },
-    boom(s = 1) { burst(.35 + s * .5, Math.min(.5, .14 * s), 1500, 60); tone(110, 30, .3 + s * .3, "sine", Math.min(.4, .12 * s)); },
-    mega() { burst(5, .9, 3000, 30); tone(70, 18, 4.5, "sine", .8); tone(140, 40, 2.5, "sawtooth", .08); },
-    rumble() { burst(1.2, .25, 200, 60); },
-    warp() { tone(120, 1800, 1.6, "sawtooth", .05); burst(1.6, .1, 400, 4000); },
-    cheer() { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, .2, "triangle", .07, i * .09)); },
-    zap() { tone(2400, 800, .05, "sawtooth", .015); },
+    unlock() { const c = ctx(); if (!c) return; if (c.state === "suspended") c.resume().then(startLoops); else startLoops(); },
+    setMuted(m) { if (master) master.gain.setTargetAtTime(m ? 0 : .7, ac.currentTime, .1); },
+    engine(thrust, boost, flying = true) {
+      if (!eng) return; const t = ac.currentTime;
+      eng.eg.gain.setTargetAtTime(flying ? .025 + thrust * .09 + (boost ? .08 : 0) : 0, t, .25);
+      eng.el.frequency.setTargetAtTime(220 + thrust * 380 + (boost ? 900 : 0), t, .3);
+      eng.saw.frequency.setTargetAtTime(44 + thrust * 18 + (boost ? 34 : 0), t, .3);
+      eng.rg.gain.setTargetAtTime(boost ? .16 : 0, t, boost ? .08 : .35);
+      eng.rb.frequency.setTargetAtTime(boost ? 1500 : 700, t, .4);
+    },
+    boostKick() { // an aggressive afterburner punch
+      if (!ok()) return; const t = ac.currentTime;
+      const n = noise(t, 1, 1.2), b = filt("bandpass", 300, 3800, t, .45, 1.2), g = env(gain(), t, .02, .9);
+      n.connect(b).connect(shaper(6)).connect(g); out(g, .45, .3);
+      const o = osc("sawtooth", 55, 160, t, .5), og = env(gain(), t, .01, .6); o.connect(filt("lowpass", 900, 900, t, 1)).connect(shaper(4)).connect(og); out(og, .22, .2);
+      const s = osc("sine", 70, 38, t, .35), sg = env(gain(), t, .005, .35); s.connect(sg); out(sg, .5, .1);
+    },
+    laser() { // sci-fi blaster: falling zap with a hard edge
+      if (!ok()) return; const t = ac.currentTime; if (t - lastLaser < .045) return; lastLaser = t;
+      const f = 1500 + Math.random() * 500;
+      const o1 = osc("square", f, 170, t, .13), o2 = osc("sawtooth", f * .66, 120, t, .15, 12);
+      const bp = filt("bandpass", 3200, 500, t, .14, 1.6), g = env(gain(), t, .002, .13);
+      o1.connect(bp); o2.connect(bp); bp.connect(g); out(g, .1, .22);
+      const c = noise(t, .03, 2), ch = filt("highpass", 4000, 4000, t, .03), cg = env(gain(), t, .001, .025); c.connect(ch).connect(cg); out(cg, .06, 0);
+    },
+    missile() { // launch thump, then a rocket hiss that fades away
+      if (!ok()) return; const t = ac.currentTime;
+      const th = osc("sine", 130, 42, t, .25), tg = env(gain(), t, .003, .25); th.connect(tg); out(tg, .45, .15);
+      const n = noise(t, 1.8, 1.1), b = filt("bandpass", 700, 2800, t, .35, .9), g = env(gain(), t, .03, 1.5); n.connect(b).connect(g); out(g, .3, .45);
+      const r = noise(t, 1.8, .5), l = filt("lowpass", 500, 150, t, 1.6), rg = env(gain(), t, .02, 1.6); r.connect(l).connect(rg); out(rg, .3, .3);
+    },
+    bomb() { // release clunk and a falling whistle
+      if (!ok()) return; const t = ac.currentTime;
+      const c = osc("square", 180, 70, t, .09), cg = env(gain(), t, .002, .09); c.connect(filt("lowpass", 900, 900, t, 1)).connect(cg); out(cg, .15, .1);
+      const w = osc("sine", 1900, 420, t + .1, 1.5), wg = gain(); wg.gain.setValueAtTime(.0001, t + .1); wg.gain.exponentialRampToValueAtTime(1, t + .4); wg.gain.exponentialRampToValueAtTime(.0001, t + 1.6);
+      w.connect(wg); out(wg, .05, .5);
+    },
+    troops() {
+      if (!ok()) return; const t = ac.currentTime;
+      for (const [d, f] of [[0, 900], [.11, 1200], [.22, 900]]) { const o = osc("square", f, f, t + d, .07), g = env(gain(), t + d, .003, .06); o.connect(filt("bandpass", 1500, 1500, t, 1, 3)).connect(g); out(g, .05, .1); }
+    },
+    boom(s = 1, at) { explosion(s, at); },
+    rumble(at) { // the planet groans before it blows
+      if (!ok()) return; const t = ac.currentTime, v = near(at);
+      const n = noise(t, 1.5, .4), l = filt("lowpass", 90, 420, t, 1.4, 2), g = gain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 1.3); g.gain.exponentialRampToValueAtTime(.0001, t + 1.5);
+      n.connect(l).connect(shaper(3)).connect(g); out(g, .6 * v, .4);
+      const o = osc("sine", 28, 60, t, 1.4), og = gain(); og.gain.setValueAtTime(.0001, t); og.gain.exponentialRampToValueAtTime(1, t + 1.3); og.gain.exponentialRampToValueAtTime(.0001, t + 1.45); o.connect(og); out(og, .5 * v, .1);
+    },
+    mega(at) { // a planet exploding: huge blast, long rumble, falling debris
+      if (!ok()) return; const t = ac.currentTime, v = Math.max(.35, near(at));
+      explosion(7, at, 3.5);
+      const n = noise(t, 7, .35), l = filt("lowpass", 400, 60, t, 6.5, .7), g = env(gain(), t, .05, 6.5); n.connect(l).connect(shaper(2)).connect(g); out(g, .8 * v, .6);
+      const s = osc("sine", 48, 14, t, 5.5), sg = env(gain(), t, .02, 5.5); s.connect(sg); out(sg, .8 * v, .2);
+      for (let i = 0; i < 28; i++) {
+        const tt = t + .4 + Math.random() * 4, c = noise(tt, .2, 1 + Math.random()), h = filt("bandpass", 600 + Math.random() * 2500, 300, tt, .2, 1.5), cg = env(gain(), tt, .002, .1 + Math.random() * .2);
+        c.connect(h).connect(cg); out(cg, .12 * v * Math.random(), .6);
+      }
+    },
+    warpIn() { // the black hole opens: rising sub, dark growl, roaring wind, then silence
+      if (!ok()) return; const t = ac.currentTime, D = 1.85;
+      const ramp = (g, peak) => { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + D - .1); g.gain.exponentialRampToValueAtTime(.0001, t + D + .08); return g; };
+      const sub = osc("sine", 24, 62, t, D);
+      const sg = ramp(gain(), 1); sub.connect(sg); out(sg, .9, .2);
+      const lp = filt("lowpass", 120, 3200, t, D, 2), gg = ramp(gain(), 1);
+      for (const [f, d] of [[55, 0], [58.3, 7], [41.2, -5], [82.4, 15]]) osc("sawtooth", f, f * .82, t, D, d).connect(lp);
+      lp.connect(shaper(4)).connect(gg); out(gg, .2, .5);
+      const n = noise(t, D, 1), b = filt("bandpass", 180, 2600, t, D, .8), ng = ramp(gain(), 1); n.connect(b).connect(ng); out(ng, .45, .6);
+      const whoosh = noise(t + D - .35, .45, 1.6), wb = filt("highpass", 300, 6000, t + D - .35, .4), wg = env(gain(), t + D - .35, .3, .12); whoosh.connect(wb).connect(wg); out(wg, .4, .4);
+    },
+    warpOut() { // spat out on the other side: a deep boom and a dying groan
+      if (!ok()) return; const t = ac.currentTime;
+      const o = osc("sine", 150, 18, t, 1.6), og = env(gain(), t, .005, 1.6); o.connect(og); out(og, 1, .5);
+      const n = noise(t, 1.8, .6), l = filt("lowpass", 2400, 60, t, 1.7, .8), ng = env(gain(), t, .01, 1.7); n.connect(l).connect(shaper(3)).connect(ng); out(ng, .5, .8);
+      const lp = filt("lowpass", 800, 90, t, 2.5, 1), dg = env(gain(), t, .05, 2.4);
+      for (const f of [55, 57.8]) osc("sawtooth", f, f * .6, t, 2.5).connect(lp);
+      lp.connect(dg); out(dg, .18, .8);
+    },
+    cheer() { if (!ok()) return; const t = ac.currentTime; [523, 659, 784, 1046].forEach((f, i) => { const o = osc("triangle", f, f, t + i * .1, .4), g = env(gain(), t + i * .1, .01, .35); o.connect(g); out(g, .08, .7); }); },
+    zap() { if (!ok()) return; const t = ac.currentTime, o = osc("sawtooth", 2400, 700, t, .06), g = env(gain(), t, .002, .05); o.connect(g); out(g, .02, .2); },
+    place() { if (!ok()) return; const t = ac.currentTime, o = osc("sine", 520, 980, t, .1), g = env(gain(), t, .005, .18); o.connect(g); out(g, .14, .4); },
+    erase() { if (!ok()) return; const t = ac.currentTime, n = noise(t, .3, 1), b = filt("bandpass", 1600, 250, t, .28, 1.2), g = env(gain(), t, .005, .28); n.connect(b).connect(g); out(g, .3, .4); },
   };
 })();
 addEventListener("pointerdown", () => sfx.unlock(), { capture: true });
@@ -615,17 +759,35 @@ const mats = {
   mail: new THREE.MeshStandardMaterial({ color: 0x3a6bd9, metalness: .3, roughness: .4 }),
   flag: new THREE.MeshStandardMaterial({ color: 0xff3b3b, roughness: .6 }),
 };
-function signTexture(text) {
-  const c = document.createElement("canvas"); c.width = 256; c.height = 128;
-  const g = c.getContext("2d");
-  g.fillStyle = "#f3e2bf"; g.fillRect(0, 0, 256, 128);
-  g.strokeStyle = "#7a4e2a"; g.lineWidth = 10; g.strokeRect(5, 5, 246, 118);
-  g.fillStyle = "#3a2312"; g.textAlign = "center"; g.textBaseline = "middle";
-  let size = 44; do { g.font = `700 ${size}px "Chakra Petch", sans-serif`; size -= 2; } while (g.measureText(text).width > 220 && size > 14);
-  g.fillText(text, 128, 66);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+const imgCache = new Map();
+function signImage(src, onload) {
+  let im = imgCache.get(src);
+  if (!im) { im = new Image(); im.src = src; imgCache.set(src, im); }
+  if (!im.complete) im.addEventListener("load", onload, { once: true });
+  return im;
 }
-function makeDecor(type, text) {
+function signTexture(d) { // wood board with text, a picture, or both
+  const c = document.createElement("canvas"); c.width = 512; c.height = 256;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const draw = () => {
+    const g = c.getContext("2d"), text = (d.text || "").toUpperCase();
+    g.fillStyle = "#f3e2bf"; g.fillRect(0, 0, 512, 256);
+    if (d.img) {
+      const im = signImage(d.img, () => { draw(); t.needsUpdate = true; });
+      if (im.complete && im.naturalWidth) { const k = Math.max(512 / im.naturalWidth, 256 / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k; g.drawImage(im, (512 - w) / 2, (256 - h) / 2, w, h); }
+    }
+    if (text) {
+      let size = d.img ? 50 : 86;
+      g.textAlign = "center"; g.textBaseline = "middle";
+      do { g.font = `700 ${size}px "Chakra Petch", sans-serif`; size -= 2; } while (g.measureText(text).width > 450 && size > 18);
+      if (d.img) { g.fillStyle = "rgba(20,12,6,.72)"; g.fillRect(0, 256 - size * 1.6, 512, size * 1.6); g.fillStyle = "#fff"; g.fillText(text, 256, 256 - size * .78); }
+      else { g.fillStyle = "#3a2312"; g.fillText(text, 256, 132); }
+    }
+    g.strokeStyle = "#7a4e2a"; g.lineWidth = 20; g.strokeRect(10, 10, 492, 236);
+  };
+  draw(); return t;
+}
+function makeDecor(type, d = {}) {
   const g = new THREE.Group(); const m = (geo, mat, y = 0, x = 0, z = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); g.add(o); return o; };
   if (type === "tower") {
     m(new THREE.CylinderGeometry(.045, .075, .38, 24), mats.metal, .19);
@@ -646,10 +808,10 @@ function makeDecor(type, text) {
     m(new THREE.BoxGeometry(.006, .025, .03), mats.flag, .25, .04, -.004);
   } else {
     m(new THREE.CylinderGeometry(.012, .014, .22, 12), mats.wood, .11);
-    const face = new THREE.MeshStandardMaterial({ map: signTexture(text || ""), roughness: .9 });
+    const face = new THREE.MeshStandardMaterial({ map: signTexture(d), roughness: .9 });
     m(new RoundedBoxGeometry(.26, .13, .02, 2, .006), [mats.wood, mats.wood, mats.wood, mats.wood, face, mats.wood], .25);
   }
-  g.userData.type = type;
+  g.userData.type = type; g.userData.size = type === "sign" ? d.size || 1 : 1;
   return g;
 }
 
@@ -782,7 +944,7 @@ class Planet {
   isLand(n) { return this.gridLand[this.cell(n.x, n.y, n.z)] === 1; }
   rebuildDecor() {
     this.decor.clear();
-    for (const d of this.data.decor) { const o = makeDecor(d.type, d.text); o.userData.decor = d; this.decor.add(o); }
+    for (const d of this.data.decor) { const o = makeDecor(d.type, d); o.userData.decor = d; this.decor.add(o); }
     this.placeDecor();
   }
   placeDecor() { for (const o of this.decor.children) orientOnPlanet(o, this, V(o.userData.decor.n).normalize(), o.userData.decor.face); }
@@ -906,7 +1068,7 @@ class Planet {
     const d = this.data; d.dead = true; d.hp = 0; d.pop = 0; d.troops = 0;
     const center = this.group.position.clone(), R = this.R;
     this.mat.emissive.set(0xff3a10);
-    sfx.rumble();
+    sfx.rumble(center);
     addFx(1.3, (k) => { // the planet glows red-hot and shakes first
       this.mat.emissiveIntensity = k * k * 2.5;
       this.spin.position.set(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).multiplyScalar(k * .04 * R);
@@ -950,7 +1112,7 @@ class Planet {
   }
 }
 function orientOnPlanet(obj, planet, n, face) {
-  const s = planet.R / 1.6, type = obj.userData.type, base = type === "sign" ? 1.5 : type === "mailbox" ? 1.4 : 1;
+  const s = planet.R / 1.6, type = obj.userData.type, base = type === "sign" ? 1.5 * obj.userData.size : type === "mailbox" ? 1.4 : 1;
   obj.position.copy(n).multiplyScalar(planet.radiusAt(n) - .01);
   if (type === "sign" || type === "mailbox" || type === "house") { // turn the front toward where the player looked from
     const f = V(face || [n.x * .2, .3, 1]);
@@ -979,7 +1141,7 @@ function afterDamage(p) {
 }
 function megaBoom(planet, center, R) {
   const far = camera.position.distanceTo(center);
-  sfx.mega(); flashScreen("#fff3d6", far < 60 ? .85 : .35);
+  sfx.mega(center); flashScreen("#fff3d6", far < 60 ? .85 : .35);
   shake = Math.max(shake, Math.max(.12, .9 * (1 - far / 80)));
   slow = .3; setTimeout(() => (slow = 1), 1600);
   toast(`💥 ${esc(planet.data.name)} was destroyed! Nobody is left.`, "boom", 5000);
@@ -1131,34 +1293,83 @@ function makeBlackHole(size) {
   scene.add(g); return g;
 }
 
-// ================= UI: panels =================
-const TOOLS = ["build", "design", "hangar"];
+// ================= views + panels =================
+// main = the normal view. planet / design / build / hangar are full views with their own panel.
+const VIEWS = { planet: "info", design: "design", build: "build", hangar: "hangar" };
+const HANGAR_POS = new THREE.Vector3(7, 1.5, 4);
 const narrow = () => matchMedia("(max-width: 820px)").matches;
-let mode = "home";
-function setPanel(name, open) {
-  if (open && TOOLS.includes(name)) for (const t of TOOLS) if (t !== name) ui[t] = false;
-  if (open && narrow()) for (const k of ["build", "design", "hangar", "mail", "chat", "map", "help"]) if (k !== name) ui[k] = false;
+let mode = "home", view = "main", camAnim = null, viewShift = 0;
+const sidePanel = () => mode === "home" && !narrow() && (view === "design" || view === "build" || view === "hangar");
+function fitDistance(radius) { // how far the camera must be so a ball of this size fits on screen
+  const v = THREE.MathUtils.degToRad(camera.fov) / 2;
+  const w = innerWidth - (sidePanel() ? 350 : 0) - 40, h = innerHeight - 150;
+  return radius / Math.sin(Math.min(Math.atan(Math.tan(v) * h / innerHeight), Math.atan(Math.tan(v) * w / innerHeight)));
+}
+function viewDistance() {
+  if (view === "hangar") return fitDistance(.34 * state.ship.size + .12);
+  return view === "main" ? fitDistance(home.R * 3.2) : fitDistance(home.R * 1.3);
+}
+function frameCamera(dur = .9) {
+  const hang = view === "hangar", target = hang ? HANGAR_POS.clone() : new THREE.Vector3(), dist = viewDistance();
+  let dir = camera.position.clone().sub(controls.target).normalize();
+  if (hang) dir.set(-.75, .4, 1).normalize();
+  else if (controls.target.lengthSq() > .01 || Math.abs(dir.y) > .85) dir.set(0, .22, 1).normalize();
+  controls.minDistance = hang ? dist * .3 : home.R * 1.5; controls.maxDistance = hang ? dist * 4 : 45;
+  camAnim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: target.clone().addScaledVector(dir, dist), t1: target, t: 0, dur };
+}
+function zoom(f) {
+  if (mode !== "home") return;
+  const base = camAnim ? camAnim.p1 : camera.position, tgt = camAnim ? camAnim.t1 : controls.target;
+  const off = base.clone().sub(tgt), L = THREE.MathUtils.clamp(off.length() * f, controls.minDistance, controls.maxDistance);
+  camAnim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: tgt.clone().add(off.setLength(L)), t1: tgt.clone(), t: 0, dur: .25 };
+}
+$("zoomIn").addEventListener("click", () => zoom(.8));
+$("zoomOut").addEventListener("click", () => zoom(1.25));
+function setView(v) {
+  if (mode !== "home") return;
+  view = v;
+  for (const [vv, panel] of Object.entries(VIEWS)) ui[panel] = vv === v;
+  if (narrow() && v !== "main") ui.mail = ui.chat = ui.map = false;
+  $("renameRow").hidden = true;
+  setTool(null); frameCamera(); renderPanels(); saveUi();
+}
+function goMain() { // Esc and the Home button: straight back to the normal view
+  if (mode === "fly") return land();
+  if (mode !== "home") return;
+  ui.map = ui.mail = ui.chat = false;
+  setView("main");
+}
+function setPanel(name, open) { // small panels on top of any view: map, mail, chat, flight controls
+  if (open && narrow()) for (const k of ["mail", "chat", "map", "help"]) if (k !== name) ui[k] = false;
   ui[name] = open;
-  if (TOOLS.includes(name)) setTool(null);
   if (name === "map" && open) { renderMap(); renderMapCard(); }
+  if ((name === "mail" || name === "chat") && open && mode === "home" && view !== "main") setView("main");
   renderPanels(); saveUi();
 }
 function renderPanels() {
   const fly = mode !== "home";
   document.querySelectorAll("[data-panel]").forEach((el) => {
     const name = el.dataset.panel;
-    el.hidden = !ui[name] || (name === "help" && !fly) || (TOOLS.includes(name) && fly);
+    let show = !!ui[name];
+    if (fly) show = show && ["map", "mail", "help"].includes(name);
+    else show = show && name !== "help" && !(view !== "main" && (name === "mail" || name === "chat"));
+    el.hidden = !show;
   });
-  document.querySelectorAll("[data-open]").forEach((b) => b.classList.toggle("on", !!ui[b.dataset.open]));
+  document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", !fly && view === b.dataset.view));
+  document.querySelectorAll("[data-open]").forEach((b) => b.classList.toggle("on", !!ui[b.dataset.open] && !$("p-" + b.dataset.open).hidden));
   document.querySelectorAll("[data-home]").forEach((b) => (b.hidden = fly));
   document.querySelectorAll("[data-fly]").forEach((b) => (b.hidden = !fly));
+  $("homeBtn").classList.toggle("on", !fly && view === "main");
+  $("zoom").hidden = fly || view === "main";
   $("soundBtn").textContent = ui.muted ? "Sound off" : "Sound on";
   $("soundBtn").classList.toggle("on", !ui.muted);
   updateHint();
 }
-document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.close, false)));
+document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => (b.dataset.close === "view" ? setView("main") : setPanel(b.dataset.close, false))));
 document.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.open, !ui[b.dataset.open])));
-$("soundBtn").addEventListener("click", () => { ui.muted = !ui.muted; saveUi(); renderPanels(); });
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(view === b.dataset.view ? "main" : b.dataset.view)));
+$("homeBtn").addEventListener("click", goMain);
+$("soundBtn").addEventListener("click", () => { ui.muted = !ui.muted; sfx.setMuted(ui.muted); saveUi(); renderPanels(); });
 
 function toast(html, cls = "", ms = 3000) {
   const t = document.createElement("div"); t.className = "toast " + cls; t.innerHTML = html; $("toasts").append(t);
@@ -1196,16 +1407,17 @@ let tool = null;
 const PLACE = ["tower", "house", "sign"], BRUSHES = ["raise", "lower", "smooth", "paint"];
 const HINTS = {
   tower: "Move over your planet and click to place a tower", house: "Move over your planet and click to place a house", sign: "Move over your planet and click to place your sign",
-  remove: "Point at a tower, house or sign and click to erase it",
+  remove: "Point at a tower, house or sign and click to erase it", editsign: "Click a sign to change its text, size or picture",
   raise: "Drag on your planet to grow mountains", lower: "Drag on your planet to dig seas", smooth: "Drag to flatten bumps", paint: "Drag on your planet to paint",
 };
 let ghost = null, eraseMark = null;
 function setTool(t) {
+  if (t !== "editsign" && editSign) finishSignEdit();
   tool = t;
   document.querySelectorAll("[data-tool]").forEach((x) => x.classList.toggle("on", x.dataset.tool === tool));
   if (ghost) { home.spin.remove(ghost); ghost = null; }
   if (PLACE.includes(tool)) { // see-through preview that follows the mouse
-    ghost = makeDecor(tool, ($("signText").value || "HI").toUpperCase());
+    ghost = makeDecor(tool, signFields());
     ghost.traverse((o) => {
       if (!o.material) return;
       const fade = (m) => { const c = m.clone(); c.transparent = true; c.opacity = .55; c.depthWrite = false; return c; };
@@ -1216,10 +1428,50 @@ function setTool(t) {
   if (eraseMark) eraseMark.visible = false;
   updateHint();
 }
-$("signText").addEventListener("input", () => { if (tool === "sign") setTool("sign"); });
 function updateHint() {
-  $("hint").textContent = mode !== "home" ? "" : tool ? HINTS[tool] : ui.hangar ? "This is your ship. Change it, then press Fly it" : "Drag to spin · scroll to zoom · hover a planet to see its owner · click a mailbox to read it";
+  $("hint").textContent = mode !== "home" ? "" : tool ? HINTS[tool]
+    : view === "hangar" ? "Drag to spin your ship · scroll or + / − to zoom · Esc to go back"
+    : view === "main" ? "Drag to spin · hover a planet to see its owner · click a mailbox to read it"
+    : "Drag to spin · scroll or + / − to zoom · Esc to go back";
 }
+// ---- signs: text, size and an optional picture
+let editSign = null, draftImg = "";
+function signFields() { return { text: ($("signText").value.trim() || "HI").toUpperCase(), size: +$("signSize").value, img: editSign ? editSign.img || "" : draftImg }; }
+function showSignPreview(src) { $("signPreview").hidden = !src; if (src) $("signPreview").src = src; }
+function signChanged() {
+  if (editSign) { editSign.text = $("signText").value.trim().toUpperCase(); editSign.size = +$("signSize").value; home.rebuildDecor(); save(); }
+  else if (tool === "sign") setTool("sign");
+}
+function startSignEdit(d) {
+  editSign = d;
+  $("signText").value = d.text || ""; $("signSize").value = d.size || 1; showSignPreview(d.img);
+  $("signBoxTitle").textContent = "Editing this sign"; $("signDoneRow").hidden = false;
+  sfx.place(); toast("Change the text, size or picture. Changes show right away.", "", 2200);
+}
+function finishSignEdit() {
+  editSign = null; $("signBoxTitle").textContent = "New sign"; $("signDoneRow").hidden = true;
+  $("signText").value = "HELLO SPACE"; $("signSize").value = 1; showSignPreview(draftImg);
+}
+function resizeImage(file) { // keep pictures small so they fit in the save
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => {
+      const k = Math.min(1, 420 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+      c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+      res(c.toDataURL("image/jpeg", .82));
+    }; im.onerror = rej; im.src = r.result; };
+    r.onerror = rej; r.readAsDataURL(file);
+  });
+}
+$("signText").addEventListener("input", signChanged);
+$("signSize").addEventListener("input", signChanged);
+$("signImg").addEventListener("change", (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  resizeImage(f).then((url) => { if (editSign) editSign.img = url; else draftImg = url; showSignPreview(url); signChanged(); })
+    .catch(() => toast("That file could not be read. Try a JPG or PNG picture."));
+});
+$("signImgClear").addEventListener("click", () => { if (editSign) editSign.img = ""; else draftImg = ""; showSignPreview(""); signChanged(); });
+$("signDone").addEventListener("click", () => { finishSignEdit(); setTool(null); });
 document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => setTool(tool === b.dataset.tool ? null : b.dataset.tool)));
 
 // ================= design panel =================
@@ -1283,10 +1535,11 @@ for (const [id, key] of [["sc-body", "body"], ["sc-accent", "accent"], ["sc-flam
 $("shipSize").addEventListener("input", (e) => { state.ship.size = +e.target.value; buildShip(); save(); });
 $("shipName").addEventListener("input", (e) => { state.ship.name = e.target.value || "No Name"; save(); });
 $("goFly").addEventListener("click", () => startFlying());
+$("shipSize").addEventListener("change", () => { if (view === "hangar") frameCamera(.4); });
 
 // ================= mailbox + chat =================
 let mailPlanet = null;
-function openMail(p) { mailPlanet = p; renderMail(); if (!ui.mail) setPanel("mail", true); }
+function openMail(p) { mailPlanet = p; renderMail(); if (!ui.mail || (mode === "home" && view !== "main")) setPanel("mail", true); }
 function renderMail() {
   const p = mailPlanet || home, d = p.data, mine = p === home;
   $("mailTitle").textContent = "Mailbox · " + d.name;
@@ -1386,7 +1639,12 @@ function brushAt(e) {
   const c = new THREE.Color($("c-brush").value);
   home.brush(n, tool, +$("s-brush").value, [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]);
 }
-function decorHit() { const h = ray.intersectObject(home.decor, true)[0]; if (!h) return null; let o = h.object; while (o.parent !== home.decor) o = o.parent; return o; }
+function decorHit() { // the decoration under the mouse, but not ones hidden behind the planet
+  const h = ray.intersectObject(home.decor, true)[0]; if (!h) return null;
+  const ph = ray.intersectObject(home.mesh, false)[0];
+  if (ph && ph.distance < h.distance - .03) return null;
+  let o = h.object; while (o.parent !== home.decor) o = o.parent; return o;
+}
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("pointerdown", (e) => {
   down = [e.clientX, e.clientY];
@@ -1406,10 +1664,11 @@ canvas.addEventListener("pointermove", (e) => {
     const hit = home.alive && ray.intersectObject(home.mesh, false)[0];
     ghost.visible = !!hit;
     if (hit) orientOnPlanet(ghost, home, home.mesh.worldToLocal(hit.point.clone()).normalize(), home.mesh.worldToLocal(camera.position.clone()).normalize().toArray());
-  } else if (tool === "remove") {
-    const o = decorHit();
+  } else if (tool === "remove" || tool === "editsign") {
+    const o = decorHit(), ok = o && (tool === "remove" ? o.userData.type !== "mailbox" : o.userData.type === "sign");
     if (!eraseMark) { eraseMark = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, .3, .4), transparent: true, opacity: .35, depthWrite: false })); scene.add(eraseMark); }
-    eraseMark.visible = !!o && o.userData.type !== "mailbox";
+    eraseMark.material.color.set(tool === "remove" ? new THREE.Color(2, .3, .4) : new THREE.Color(2, 1.6, .3));
+    eraseMark.visible = !!ok;
     if (eraseMark.visible) { o.getWorldPosition(eraseMark.position); eraseMark.scale.setScalar(.22 * home.R / 1.6); }
   }
   hover(e);
@@ -1421,26 +1680,34 @@ canvas.addEventListener("pointerup", (e) => {
   const s = state.home;
   if (tool === "remove") {
     const o = decorHit();
-    if (!o) return;
+    if (!o) return toast("Point right at a tower, house or sign to erase it", "", 1800);
     if (o.userData.type === "mailbox") return toast("The mailbox stays, so friends can leave you notes");
     s.decor = s.decor.filter((d) => d !== o.userData.decor);
-    spark(o.getWorldPosition(new THREE.Vector3()), .4, ORANGE); sfx.zap();
+    const at = o.getWorldPosition(new THREE.Vector3()); spark(at, .5, ORANGE); smoke.spawn(at, new THREE.Vector3(), 1, .25, SMOKE0, SMOKE1, 2, 1); sfx.erase();
     if (eraseMark) eraseMark.visible = false;
     home.rebuildDecor(); save(); return;
+  }
+  if (tool === "editsign") {
+    const o = decorHit();
+    if (!o || o.userData.type !== "sign") return toast("Click right on a sign to edit it", "", 1800);
+    startSignEdit(o.userData.decor); if (eraseMark) eraseMark.visible = false; return;
   }
   if (PLACE.includes(tool)) {
     const hit = home.alive && ray.intersectObject(home.mesh, false)[0];
     if (!hit) return;
     const n = home.mesh.worldToLocal(hit.point.clone()).normalize();
     const d = { type: tool, n: n.toArray().map((x) => +x.toFixed(4)), face: home.mesh.worldToLocal(camera.position.clone()).normalize().toArray().map((x) => +x.toFixed(4)) };
-    if (tool === "sign") d.text = ($("signText").value || "HI").toUpperCase();
-    s.decor.push(d); home.rebuildDecor(); save(); return;
+    if (tool === "sign") Object.assign(d, signFields());
+    s.decor.push(d); home.rebuildDecor(); save();
+    spark(home.mesh.localToWorld(n.clone().multiplyScalar(home.radiusAt(n) + .05)), .5, C(0x7dff9b, 2)); sfx.place();
+    if (ghost) ghost.visible = false;
+    toast(`${{ tower: "Tower", house: "House", sign: "Sign" }[tool]} placed`, "", 1200); return;
   }
   if (!tool) { // click a mailbox, or a far planet to see it on the map
     const o = decorHit();
     if (o && o.userData.type === "mailbox") return openMail(home);
     const hit = ray.intersectObjects(planets.filter((p) => p !== home).map((p) => p.mesh), false)[0];
-    if (hit) { mapSel = hit.object.userData.planet; setPanel("map", true); }
+    if (hit) { mapSel = hit.object.userData.planet; setPanel("map", true); renderMapCard(); }
   }
 });
 const tip = $("tip");
@@ -1465,16 +1732,19 @@ function buildTags() {
 
 // ================= flying =================
 const keys = new Set(), vel = new THREE.Vector3(), head = new THREE.Quaternion();
-let orbitT = 0, weapon = "laser", aimPlanet = null, lastHitPlanet = null, lastHitAt = -99, warp = null;
+let wasBoost = false, orbitT = 0, weapon = "laser", aimPlanet = null, lastHitPlanet = null, lastHitAt = -99, warp = null;
 const lastShot = {}, aimPoint = new THREE.Vector3(), bolts = [];
-function startFlying() {
+function startFlying() { // only switches to flight; the ship waits until you press W
   if (mode !== "home") return;
+  setTool(null);
+  view = "main"; for (const p of Object.values(VIEWS)) ui[p] = false; ui.map = ui.mail = false;
+  camAnim = null; viewShift = 0; camera.clearViewOffset();
   mode = "fly"; document.body.classList.add("flying");
-  controls.enabled = false; setTool(null); tip.hidden = true;
-  placeOrbit(orbitT); head.copy(ship.quaternion);
-  vel.copy(FWD).applyQuaternion(ship.quaternion).multiplyScalar(8);
+  controls.enabled = false; tip.hidden = true;
+  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion);
+  vel.set(0, 0, 0);
   aimNdc.set(0, 0); $("crosshair").style.left = "50%"; $("crosshair").style.top = "50%";
-  $("flyBtn").textContent = "Land"; $("flyHud").hidden = false; $("crosshair").hidden = false; $("weapons").hidden = false;
+  $("flyHud").hidden = false; $("crosshair").hidden = false; $("weapons").hidden = false;
   $("hudShip").textContent = state.ship.name;
   if (navArrow) navArrow.visible = !!nav;
   renderWeapons(); renderPanels();
@@ -1489,7 +1759,7 @@ function land() { // fly into a black hole, come out next to home
   hole.position.copy(ship.position).addScaledVector(fwd, 3 + state.ship.size * 2);
   hole.lookAt(camera.position);
   warp = { phase: "in", t: 0, hole, size, start: ship.position.clone() };
-  sfx.warp(); renderPanels();
+  sfx.warpIn(); sfx.engine(0, false, false); renderPanels();
 }
 function warpStep(dt) {
   const w = warp; w.t += dt;
@@ -1503,8 +1773,10 @@ function warpStep(dt) {
     camera.lookAt(w.hole.position);
     if (k >= 1) {
       flashScreen("#d8c8ff", 1); scene.remove(w.hole);
-      camera.up.set(0, 1, 0); camera.position.set(0, 1.4, 7); controls.target.set(0, 0, 0); controls.update();
-      placeOrbit(orbitT);
+      view = "main"; const dist = viewDistance();
+      camera.up.set(0, 1, 0); camera.position.set(0, dist * .22, dist); controls.target.set(0, 0, 0);
+      controls.minDistance = home.R * 1.5; controls.maxDistance = 45; controls.update();
+      placeOrbit(orbitT); sfx.warpOut();
       const size = .3 + state.ship.size * .2, hole2 = makeBlackHole(size); hole2.position.copy(ship.position); hole2.lookAt(camera.position);
       warp = { phase: "out", t: 0, hole: hole2, size };
     }
@@ -1517,7 +1789,7 @@ function warpStep(dt) {
     if (k >= 1) {
       scene.remove(w.hole); warp = null; ship.scale.setScalar(1);
       mode = "home"; document.body.classList.remove("flying"); controls.enabled = true;
-      $("flyBtn").textContent = "Fly"; $("flyHud").hidden = true;
+      $("flyHud").hidden = true;
       toast(`🛡 Back home. ${esc(state.ship.name)} is guarding ${esc(state.home.name)}`);
       renderPanels();
     }
@@ -1526,8 +1798,11 @@ function warpStep(dt) {
 $("flyBtn").addEventListener("click", () => (mode === "fly" ? land() : mode === "home" ? startFlying() : 0));
 const typing = (e) => e.target.tagName === "INPUT";
 addEventListener("keydown", (e) => {
-  if (typing(e) || mode !== "fly") return;
-  if (e.code === "Escape") return land();
+  if (e.key === "Escape") { if (typing(e)) e.target.blur(); goMain(); return; }
+  if (typing(e)) return;
+  if (mode === "home" && (e.key === "+" || e.key === "=")) zoom(.8);
+  if (mode === "home" && (e.key === "-" || e.key === "_")) zoom(1.25);
+  if (mode !== "fly") return;
   if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
   if (e.code.startsWith("Digit")) { const w = Object.keys(WEAPONS)[+e.code.slice(5) - 1]; if (w) { weapon = w; renderWeapons(); } }
   if (!e.repeat) {
@@ -1632,10 +1907,10 @@ function impact(b, planet, point) {
   const surf = planet.mesh.localToWorld(n.clone().multiplyScalar(planet.radiusAt(n)));
   const nrm = surf.clone().sub(planet.group.position).normalize();
   lastHitPlanet = planet; lastHitAt = clock(); planet.welcomed = true;
-  if (b.kind === "laser") { spark(surf, .5); planet.hitAt(n, "laser"); }
-  else if (b.kind === "missile") { boom(surf, 1.4); ring(surf, nrm, .6, .6, new THREE.Color(2, 1.4, .8)); sfx.boom(1.5); planet.hitAt(n, "missile"); }
+  if (b.kind === "laser") { spark(surf, .5); planet.hitAt(n, "laser"); if (Math.random() < .3) sfx.boom(.35, surf); }
+  else if (b.kind === "missile") { boom(surf, 1.4); ring(surf, nrm, .6, .6, new THREE.Color(2, 1.4, .8)); sfx.boom(1.5, surf); planet.hitAt(n, "missile"); }
   else if (b.kind === "bomb") {
-    boom(surf, 3); ring(surf, nrm, 1.6, 1.2, new THREE.Color(2.5, 1.6, 1), .2); sfx.boom(3);
+    boom(surf, 3); ring(surf, nrm, 1.6, 1.2, new THREE.Color(2.5, 1.6, 1), .2); sfx.boom(3.5, surf);
     const v = new THREE.Vector3();
     for (let i = 0; i < 160; i++) fire.spawn(surf, nrm.clone().multiplyScalar(rnd(1, 3.5)).add(v.randomDirection().multiplyScalar(.8)), rnd(.8, 1.6), rnd(.15, .4), HOT, i % 2 ? ORANGE : RED, 2, 1.4);
     planet.hitAt(n, "bomb");
@@ -1682,15 +1957,17 @@ function flyStep(dt) {
   _m.lookAt(aimPoint, ship.position, headUp);
   ship.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(_m), 1 - Math.exp(-dt * 12));
   // the camera slowly turns after the ship, so holding the cursor to one side keeps turning
-  const off = Math.max(0, aimNdc.length() - .05);
-  head.slerp(ship.quaternion, 1 - Math.exp(-dt * (1.2 + off * 2.5)));
+  // the view only turns after the ship while you are moving, so a still ship stays still
+  const follow = Math.min(1, vel.length() / 12) * (1.4 + Math.max(0, aimNdc.length() - .05) * 2.5);
+  head.slerp(ship.quaternion, 1 - Math.exp(-dt * follow));
   model.rotation.z += ((-aimNdc.x * .7) - model.rotation.z) * Math.min(1, dt * 5);
   const fwd = FWD.clone().applyQuaternion(ship.quaternion);
   const max = boost ? 220 : 60, accel = boost ? 260 : 70;
   if (k("KeyW")) vel.addScaledVector(fwd, accel * dt);
   if (k("KeyS")) vel.multiplyScalar(Math.max(0, 1 - 4 * dt));
   vel.lerp(fwd.clone().multiplyScalar(vel.length()), Math.min(1, dt * 2.5)); // fly where you point, less drifting
-  vel.multiplyScalar(1 - .35 * dt);
+  vel.multiplyScalar(Math.exp(-(k("KeyW") ? .35 : 1.6) * dt)); // let go of W and the ship slows to a stop
+  if (!k("KeyW") && vel.length() < .3) vel.set(0, 0, 0);
   if (vel.length() > max) vel.lerp(vel.clone().setLength(max), Math.min(1, dt * 3));
   ship.position.addScaledVector(vel, dt);
   for (const p of planets) { // bump off planets
@@ -1702,12 +1979,14 @@ function flyStep(dt) {
   if (firing && (weapon === "missile" || weapon === "bomb")) fireWeapon(weapon);
   for (const f of ship.userData.flames) f.scale.set(1, (k("KeyW") ? (boost ? 3.2 : 1.7) : .7) + Math.random() * .35, 1);
   if (boost && k("KeyW")) for (let i = 0; i < 3; i++) fire.spawn(ship.position.clone().addScaledVector(fwd, -.3 * size), fwd.clone().multiplyScalar(-8).add(new THREE.Vector3().randomDirection()), .3, .06 * size, C(state.ship.flame, 2), DARK);
-  // chase camera: right behind the ship, ship in the middle of the screen
-  const dist = .3 + ship.userData.len * 1.7 + Math.min(.7, vel.length() / 250);
-  const camWant = ship.position.clone().addScaledVector(FWD.clone().applyQuaternion(head), -dist).addScaledVector(headUp, dist * .22);
-  camera.position.lerp(camWant, 1 - Math.exp(-dt * 10));
+  // camera: behind and a little above, far enough to see the whole ship in the middle of the screen
+  const L = ship.userData.len, dist = .45 + L * 3.4 + Math.min(.8, vel.length() / 200) * L * 2;
+  camera.position.copy(ship.position).addScaledVector(FWD.clone().applyQuaternion(head), -dist).addScaledVector(headUp, dist * .16);
   camera.up.copy(headUp);
-  camera.lookAt(ship.position.clone().addScaledVector(headUp, dist * .2));
+  camera.lookAt(ship.position.clone().addScaledVector(headUp, L * .12));
+  const boosting = boost && k("KeyW");
+  if (boosting && !wasBoost) sfx.boostKick();
+  wasBoost = boosting; sfx.engine(k("KeyW") ? 1 : 0, boosting);
   camera.fov += ((boost && k("KeyW") ? 72 : 58) - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
   // HUD
   $("hudSpeed").textContent = fmt(vel.length() * 10);
@@ -1758,7 +2037,7 @@ function updateTags() {
     p.tag.innerHTML = `${p === nav ? "➤ " : ""}${esc(p.data.name)}<br><b>${esc(p.data.owner)}</b> · ${p.alive ? fmt(p.data.pop) + " people" : "destroyed"} · ${fmt(dist * 1000)} km`;
   }
   const st = $("shipTag");
-  if (mode === "home" && !ui.hangar) {
+  if (mode === "home" && view === "main") {
     v.copy(ship.position); v.y += .25 * state.ship.size; v.project(camera);
     st.hidden = v.z > 1; st.style.left = (v.x + 1) / 2 * innerWidth + "px"; st.style.top = (1 - v.y) / 2 * innerHeight + "px";
     st.innerHTML = `🛡 ${esc(state.ship.name)} · guarding`;
@@ -1776,11 +2055,11 @@ $("attack").addEventListener("click", () => {
   beam.position.copy(from).add(hitW).multiplyScalar(.5); beam.scale.y = from.distanceTo(hitW);
   beam.quaternion.setFromUnitVectors(UP, hitW.clone().sub(from).normalize());
   scene.add(beam); addFx(.25, (k) => (beam.material.opacity = 1 - k), () => scene.remove(beam));
-  setTimeout(() => { boom(hitW, 1.2); sfx.boom(1.3); home.hitAt(n, "missile"); }, 160);
+  setTimeout(() => { boom(hitW, 1.2); sfx.boom(1.5, hitW); home.hitAt(n, "missile"); }, 160);
 });
 $("reset").addEventListener("click", () => {
-  state = defaults(); setNav(null); mapSel = null; mailPlanet = null; setTool(null);
-  buildWorld(); buildShip(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); save();
+  state = defaults(); setNav(null); mapSel = null; mailPlanet = null; setTool(null); draftImg = ''; showSignPreview('');
+  buildWorld(); buildShip(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); save(); setView("main");
   toast("Everything is back to the start");
 });
 
@@ -1798,7 +2077,7 @@ let mapTick = 0;
 function frame() {
   const realDt = Math.min(timer.getDelta(), .05), dt = realDt * slow, t = timer.elapsedTime;
   sky.position.copy(camera.position); sky.userData.starMat.uniforms.time.value = t;
-  const still = reduce || brushing || (tool && mode === "home") || ui.design;
+  const still = reduce || brushing || (mode === "home" && (!!tool || view === "design" || view === "build"));
   if (!still) home.spin.rotation.y += dt * .04;
   for (const p of planets) {
     if (p !== home) p.spin.rotation.y += dt * .03;
@@ -1815,14 +2094,15 @@ function frame() {
   if (mode === "fly") flyStep(dt);
   else if (mode === "warp") warpStep(realDt);
   else {
-    if (ui.hangar) { // show the ship up close next to the planet
-      const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-      const right = new THREE.Vector3().crossVectors(dir, camera.up).normalize();
-      ship.position.copy(camera.position).addScaledVector(dir, 1.6 + state.ship.size * 1.3).addScaledVector(right, narrow() ? 0 : .75 + state.ship.size * .55).addScaledVector(camera.up, narrow() ? .5 : 0);
-      ship.rotation.set(.35, t * .6, 0); model.rotation.z = 0;
-    } else { orbitT += dt * .3; placeOrbit(orbitT); model.rotation.z = Math.sin(t) * .1; }
+    if (view === "hangar") { ship.position.copy(HANGAR_POS); ship.rotation.set(0, -.5, 0); ship.scale.setScalar(1); model.rotation.z = 0; } // you spin it with the mouse
+    else { orbitT += dt * .3; placeOrbit(orbitT); model.rotation.z = Math.sin(t) * .1; }
     for (const f of ship.userData.flames) f.scale.set(1, .8 + Math.sin(t * 30) * .2, 1);
-    controls.update();
+    if (camAnim) { // glide to the new view
+      camAnim.t += realDt / camAnim.dur; const e = ss(0, 1, Math.min(1, camAnim.t));
+      camera.position.lerpVectors(camAnim.p0, camAnim.p1, e); controls.target.lerpVectors(camAnim.t0, camAnim.t1, e);
+      camera.lookAt(controls.target);
+      if (camAnim.t >= 1) { camAnim = null; controls.update(); }
+    } else controls.update();
     if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
   }
   boltStep(dt);
@@ -1832,6 +2112,11 @@ function frame() {
     f.update(Math.min(1, f.t / f.dur), dt);
     if (f.t >= f.dur) { fx.splice(i, 1); f.end?.(); }
   }
+  // slide the picture right when a panel covers the left side
+  const wantShift = sidePanel() ? 175 : 0;
+  viewShift = Math.abs(wantShift - viewShift) < .5 ? wantShift : viewShift + (wantShift - viewShift) * Math.min(1, realDt * 6);
+  if (viewShift > .5) camera.setViewOffset(innerWidth, innerHeight, -viewShift, 0, innerWidth, innerHeight);
+  else if (camera.view && camera.view.enabled) camera.clearViewOffset();
   updateTags();
   if (ui.map && (mapTick += realDt) > .3) { mapTick = 0; renderMap(); }
   const off = new THREE.Vector3();
@@ -1841,8 +2126,9 @@ function frame() {
 }
 
 buildWorld(); buildShip(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); renderPanels();
+{ const dist = viewDistance(); camera.position.set(0, dist * .22, dist); }
 renderer.setAnimationLoop(frame);
-window.__tp = { get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
+window.__tp = { get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
 </script>
 </body>
 </html>
