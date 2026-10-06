@@ -28,7 +28,7 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--void); color: var(--text); font: 14px/1.45 var(--body); overflow: hidden; }
-canvas#scene { position: fixed; inset: 0; display: block; touch-action: none; }
+canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 body.flying canvas#scene { cursor: none; }
 .hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(10px); }
 .label { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
@@ -242,7 +242,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 <section id="p-help" class="hud panel" data-panel="help" hidden>
   <div class="ph"><span class="label">Flight controls</span><button class="x" data-close="help" aria-label="Close flight controls">×</button></div>
   <div class="keys">
-    <kbd>Mouse</kbd><span>steer · ship points at the cursor</span>
+    <kbd>Mouse</kbd><span>move it to steer · shots go to the cursor</span>
     <kbd>Click</kbd><span>fire picked weapon</span>
     <kbd>W / S</kbd><span>go / brake</span>
     <kbd>Shift</kbd><span>super boost</span>
@@ -1771,7 +1771,7 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 addEventListener("pointerup", () => { firing = false; });
 canvas.addEventListener("pointermove", (e) => {
-  if (mode === "fly") { setAimFromEvent(e); return; }
+  if (mode === "fly") { setAimFromEvent(e); mouseTurn.x += e.movementX || 0; mouseTurn.y += e.movementY || 0; return; }
   if (brushing) return brushAt(e);
   if (mode !== "home") return;
   aim(e);
@@ -1847,7 +1847,7 @@ function buildTags() {
 
 // ================= flying =================
 const keys = new Set(), vel = new THREE.Vector3(), head = new THREE.Quaternion();
-const turn = new THREE.Vector3();
+const turn = new THREE.Vector3(), mouseTurn = new THREE.Vector2(), lean = new THREE.Vector2();
 let wasBoost = false, orbitT = 0, weapon = "laser", aimPlanet = null, lastHitPlanet = null, lastHitAt = -99, warp = null;
 const lastShot = {}, aimPoint = new THREE.Vector3(), bolts = [];
 function startFlying() { // only switches to flight; the ship waits until you press W
@@ -1857,7 +1857,7 @@ function startFlying() { // only switches to flight; the ship waits until you pr
   camAnim = null; viewShift.set(0, 0); camera.clearViewOffset();
   mode = "fly"; document.body.classList.add("flying");
   controls.enabled = false; tip.hidden = true;
-  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion); turn.set(0, 0, 0); model.quaternion.identity();
+  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion); turn.set(0, 0, 0); mouseTurn.set(0, 0); lean.set(0, 0); model.quaternion.identity();
   vel.set(0, 0, 0);
   aimNdc.set(0, 0); $("crosshair").style.left = "50%"; $("crosshair").style.top = "50%";
   $("flyHud").hidden = false; $("crosshair").hidden = false; $("weapons").hidden = false;
@@ -2061,17 +2061,18 @@ function boltStep(dt) {
 function flyStep(dt) {
   const k = (c) => keys.has(c);
   const boost = k("ShiftLeft") || k("ShiftRight"), size = state.ship.size, thrust = k("KeyW");
-  // steering: the further the cursor is from the middle, the faster you turn toward it
-  const dz = .05, axis = (v) => Math.sign(v) * Math.min(1, Math.max(0, Math.abs(v) - dz) / (1 - dz - .05));
-  const sx = axis(aimNdc.x), sy = axis(aimNdc.y);
+  // steering: moving the mouse turns the ship by that much; a still mouse means a still ship
+  const SENS = .0032, mx = -mouseTurn.x * SENS, my = mouseTurn.y * SENS; mouseTurn.set(0, 0);
   const keyYaw = (k("KeyA") || k("ArrowLeft") ? 1 : 0) - (k("KeyD") || k("ArrowRight") ? 1 : 0);
   const keyPitch = (k("ArrowDown") ? 1 : 0) - (k("ArrowUp") ? 1 : 0);
   const roll = (k("KeyE") ? 1 : 0) - (k("KeyQ") ? 1 : 0);
-  turn.lerp(new THREE.Vector3(-sy * 1.5 + keyPitch * 1.2, -sx * 2 + keyYaw * 1.6, roll * 2.2), Math.min(1, dt * 9));
-  head.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(turn.x * dt, turn.y * dt, turn.z * dt))).normalize();
+  turn.lerp(new THREE.Vector3(keyPitch * 1.2, keyYaw * 1.6, roll * 2.2), Math.min(1, dt * 9));
+  head.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(turn.x * dt + my, turn.y * dt + mx, turn.z * dt))).normalize();
   ship.quaternion.copy(head);
-  // the ship leans toward the cursor so you can see where it is going
-  model.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(-sy * .3, -sx * .45, -sx * .65, "YXZ")), Math.min(1, dt * 8));
+  // the ship leans into turns so you can feel where it is going
+  lean.lerp(new THREE.Vector2((mx + turn.y * dt) / Math.max(dt, .001), (my + turn.x * dt) / Math.max(dt, .001)), Math.min(1, dt * 6));
+  const lx = THREE.MathUtils.clamp(lean.x, -2, 2), ly = THREE.MathUtils.clamp(lean.y, -2, 2);
+  model.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(ly * .12, lx * .15, lx * .3, "YXZ")), Math.min(1, dt * 8));
   const headUp = UP.clone().applyQuaternion(head), fwd = FWD.clone().applyQuaternion(head);
   const max = boost ? 220 : 60, accel = boost ? 260 : 70;
   if (thrust) vel.addScaledVector(fwd, accel * dt);
@@ -2183,6 +2184,7 @@ $("reset").addEventListener("click", () => {
 
 // ================= loop =================
 function resize() {
+  const pr = Math.min(devicePixelRatio, 2); renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
   renderer.setSize(innerWidth, innerHeight, false); composer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   const sc = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(29)));
