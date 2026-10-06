@@ -2128,7 +2128,7 @@ function frame() {
 buildWorld(); buildShip(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); renderPanels();
 { const dist = viewDistance(); camera.position.set(0, dist * .22, dist); }
 renderer.setAnimationLoop(frame);
-window.__tp = { get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
+window.__tp = { camera, get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };
 </script>
 </body>
 </html>
