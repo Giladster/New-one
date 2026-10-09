@@ -76,9 +76,9 @@ function applyHit(p, kind) {
 // ---------------- web server ----------------
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
-  if (url.pathname === "/health") { res.writeHead(200, { "content-type": "text/plain" }); return res.end("ok"); }
+  if (url.pathname === "/health") { res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" }); return res.end("ok"); }
   if (url.pathname === "/status") {
-    res.writeHead(200, { "content-type": "application/json" });
+    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
     return res.end(JSON.stringify({ online: clients.size, planets: Object.keys(world.planets).length, players: Object.keys(world.players).length, storage: store.kind }));
   }
   let file = path.normalize(path.join(GAME_DIR, url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname)));

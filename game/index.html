@@ -127,6 +127,13 @@ body.joining .hud:not(#p-join), body.joining .hint { display: none !important; }
 #crosshair::after { inset: 13px; background: var(--cyan); border: none; }
 #crosshair.lock::before { border-color: var(--danger); }
 #crosshair.lock::after { background: var(--danger); }
+.wakebar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+.wakebar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #9cf); transition: width .4s; }
+#lockBox { position: fixed; z-index: 3; pointer-events: none; transform: translate(-50%, -50%); border: 2px dashed var(--accent); border-radius: 6px; transition: width .15s, height .15s; }
+#lockBox.locked { border: 2px solid var(--danger); box-shadow: 0 0 14px rgba(255,90,110,.6); animation: lockpulse .6s ease-in-out infinite alternate; }
+#lockBox span { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 6px); font: 600 11px var(--mono); letter-spacing: .1em; color: var(--accent); white-space: nowrap; text-shadow: 0 1px 3px #000; }
+#lockBox.locked span { color: var(--danger); }
+@keyframes lockpulse { to { box-shadow: 0 0 24px rgba(255,90,110,.9); } }
 #weapons { left: 16px; flex-direction: column; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 6px; display: flex; gap: 6px; }
 #weapons button { position: relative; overflow: hidden; display: grid; gap: 1px; padding: 5px 10px; text-align: center; min-width: 74px; }
 #weapons button small { font: 10px var(--mono); color: inherit; opacity: .7; }
@@ -152,7 +159,10 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 
 <section id="p-join" class="hud panel" hidden>
   <h2>Tiny Planet</h2>
-  <div id="joinWait" class="small">Connecting to the galaxy… (a sleeping free server can take up to a minute to wake up)</div>
+  <div id="joinWait" class="group">
+    <span class="small" id="wakeText">Connecting to the galaxy…</span>
+    <div class="wakebar"><i id="wakeFill"></i></div>
+  </div>
   <div id="joinForm" class="group" hidden>
     <span class="small">This galaxy is live. Other players can visit your planet, leave you notes, and attack it, even while you are away.</span>
     <input id="joinName" type="text" maxlength="20" placeholder="Your player name" aria-label="Your player name">
@@ -284,10 +294,11 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <kbd>C</kbd><span>barrel roll to dodge shots</span>
     <kbd>N</kbd><span>atom bomb: destroys a planet in one hit</span>
     <kbd>Shift</kbd><span>super boost</span>
-    <kbd>A D ↑ ↓</kbd><span>turn with keys</span>
+    <kbd>A / D</kbd><span>slide left / right</span>
+    <kbd>← → ↑ ↓</kbd><span>turn with keys</span>
     <kbd>Q / E</kbd><span>roll</span>
     <kbd>Space</kbd><span>lasers</span>
-    <kbd>F</kbd><span>missile (or right click)</span>
+    <kbd>F</kbd><span>missile (or right click) · flies to a locked target</span>
     <kbd>B</kbd><span>drop bomb</span>
     <kbd>T</kbd><span>send troops</span>
     <kbd>M</kbd><span>mailbox of the planet you look at</span>
@@ -307,6 +318,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 </section>
 <div id="weapons" class="hud" hidden></div>
 <div id="crosshair" hidden></div>
+<div id="lockBox" hidden><span id="lockText">LOCKING…</span></div>
 <div id="tip" class="hud" hidden></div>
 <div id="tags"></div>
 <div id="toasts"></div>
@@ -648,6 +660,7 @@ const sfx = (() => {
       const s = osc("sine", 55, 12, t, 7), sg = env(gain(), t, .05, 7); s.connect(sg); out(sg, 1 * v, .3);
       const h = noise(t, .6, 2), hp = filt("highpass", 3000, 800, t, .5), hg = env(gain(), t, .001, .5); h.connect(hp).connect(hg); out(hg, .5 * v, .6);
     },
+    lock() { if (!ok()) return; const t = ac.currentTime; for (const d of [0, .09]) { const o = osc("square", 1500, 1500, t + d, .06), g = env(gain(), t + d, .002, .06); o.connect(g); out(g, .05, .1); } },
     cheer() { if (!ok()) return; const t = ac.currentTime; [523, 659, 784, 1046].forEach((f, i) => { const o = osc("triangle", f, f, t + i * .1, .4), g = env(gain(), t + i * .1, .01, .35); o.connect(g); out(g, .08, .7); }); },
     zap() { if (!ok()) return; const t = ac.currentTime, o = osc("sawtooth", 2400, 700, t, .06), g = env(gain(), t, .002, .05); o.connect(g); out(g, .02, .2); },
     place() { if (!ok()) return; const t = ac.currentTime, o = osc("sine", 520, 980, t, .1), g = env(gain(), t, .005, .18); o.connect(g); out(g, .14, .4); },
@@ -1064,18 +1077,22 @@ function buildDefenseTower(g, m) { // a gun tower that shoots at anyone attackin
 }
 const PANIC = ["WE ARE UNDER ATTACK!", "HELP!!!", "NOT MY HOUSE!", "CALL MOM!", "WHY US?!", "RUN!!!", "STOP IT!", "I JUST PAINTED THAT!", "AAAAAH!", "GO AWAY!", "MY CAT!", "SAVE THE CHEESE!"];
 const panicTex = new Map();
-function panicSprite(text) {
-  if (!panicTex.has(text)) {
+const WORSHIP = ["ALL HAIL {you}!", "WE LOVE YOU {you}!", "OUR HERO!", "THANK YOU {you}!", "♥ ♥ ♥", "BEST CAPTAIN EVER!", "{you} IS HOME!", "WE BUILT YOU A STATUE*"];
+function panicSprite(text, happy = false) {
+  text = text.slice(0, 26);
+  const key = (happy ? "+" : "-") + text;
+  if (!panicTex.has(key)) {
     const c = document.createElement("canvas"); c.width = 512; c.height = 160; const g = c.getContext("2d");
-    g.fillStyle = "#fffdf4"; g.strokeStyle = "#c0202a"; g.lineWidth = 10;
+    const ink = happy ? "#b8860b" : "#c0202a";
+    g.fillStyle = "#fffdf4"; g.strokeStyle = ink; g.lineWidth = 10;
     g.beginPath(); g.roundRect(8, 8, 496, 120, 26); g.fill(); g.stroke();
     g.beginPath(); g.moveTo(230, 126); g.lineTo(256, 156); g.lineTo(282, 126); g.fill();
     let size = 56; g.textAlign = "center"; g.textBaseline = "middle";
     do { g.font = `700 ${size}px "Chakra Petch", sans-serif`; size -= 2; } while (g.measureText(text).width > 460);
-    g.fillStyle = "#c0202a"; g.fillText(text, 256, 70);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; panicTex.set(text, t);
+    g.fillStyle = ink; g.fillText(text, 256, 70);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; panicTex.set(key, t);
   }
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: panicTex.get(text), depthWrite: false }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: panicTex.get(key), depthWrite: false }));
   return s;
 }
 const JUNK = [ // what scared people throw at your ship
@@ -1114,6 +1131,7 @@ const GW = 128, GH = 64;
 const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
 const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const sphereGeo = new THREE.SphereGeometry(1, 96, 64);
+const _q2 = new THREE.Quaternion(), XAXIS = new THREE.Vector3(1, 0, 0);
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(1, 1, 1);
 
 class Planet {
@@ -1278,6 +1296,7 @@ class Planet {
   hitAt(n, kind, remote = false) { // remote = another player's shot, told to us by the server
     if (!this.alive) return;
     const cfg = DAMAGE[kind];
+    if (!remote) lastPlayerAttack = clock();
     if (!remote && net.me && this.data.id) net.send({ t: "hit", id: this.data.id, n: n.toArray().map(r3), kind });
     this.stamp(n, kind);
     this.dirty = true;
@@ -1404,6 +1423,8 @@ class Planet {
   }
   updatePeople(dt, t) {
     const panic = clock() - this.lastHit < 8, cheer = clock() < this.cheerUntil;
+    const worship = this.isHome && !panic && ship.visible && ship.position.distanceTo(this.group.position) < this.R * 9; // your people love you
+    const shipLocal = worship ? this.mesh.worldToLocal(ship.position.clone()) : null;
     const civ = this.civilians();
     for (let i = this.people.length - 1; i >= 0; i--) {
       const p = this.people[i];
@@ -1413,7 +1434,8 @@ class Planet {
         if (p.life <= 0) { spark(this.mesh.localToWorld(p.pos.clone()), .25, RED); this.people.splice(i, 1); }
         continue;
       }
-      let speed = p.speed * (panic ? 3.2 : 1) * (cheer && !p.soldier ? 0 : 1);
+      let speed = p.speed * (panic ? 3.2 : 1) * ((cheer || worship) && !p.soldier ? 0 : 1);
+      if (worship && !p.soldier) { const to = shipLocal.clone().sub(p.dir).projectOnPlane(p.dir); if (to.lengthSq() > 1e-6) p.head.lerp(to.normalize(), Math.min(1, dt * 4)); }
       if (p.soldier) {
         if (!p.target || p.target.state !== "walk" || Math.random() < dt * .3) p.target = civ.length ? civ.reduce((a, b) => (b.dir.dot(p.dir) > a.dir.dot(p.dir) ? b : a)) : null;
         if (p.target) {
@@ -1430,18 +1452,19 @@ class Planet {
       p.head.projectOnPlane(p.dir).normalize();
     }
     // scared people hold up signs
-    if (panic && civ.length && this.signs.length < Math.min(4, civ.length) && Math.random() < dt * 3) {
-      const sp = panicSprite(PANIC[(Math.random() * PANIC.length) | 0]); sp.userData.person = civ[(Math.random() * civ.length) | 0]; sp.userData.until = clock() + rnd(2, 4);
+    const signing = panic || worship;
+    if (signing && civ.length && this.signs.length < Math.min(4, civ.length) && Math.random() < dt * 3) {
+      const sp = worship ? panicSprite(WORSHIP[(Math.random() * WORSHIP.length) | 0].replace("{you}", (this.data.owner || "YOU").toUpperCase()), true) : panicSprite(PANIC[(Math.random() * PANIC.length) | 0]); sp.userData.person = civ[(Math.random() * civ.length) | 0]; sp.userData.until = clock() + rnd(2, 4);
       this.spin.add(sp); this.signs.push(sp);
     }
     for (let i = this.signs.length - 1; i >= 0; i--) {
       const sp = this.signs[i], pr = sp.userData.person;
-      if (!panic || clock() > sp.userData.until || pr.state !== "walk") { this.spin.remove(sp); sp.material.dispose(); this.signs.splice(i, 1); continue; }
-      const k = Math.sqrt(this.R / 1.6); sp.position.copy(pr.dir).multiplyScalar(this.radiusAt(pr.dir) + .3 * k); sp.scale.set(.42 * k, .13 * k, 1);
+      if (!signing || clock() > sp.userData.until || pr.state !== "walk") { this.spin.remove(sp); sp.material.dispose(); this.signs.splice(i, 1); continue; }
+      const k = Math.sqrt(this.R / 1.6); sp.position.copy(pr.dir).multiplyScalar(this.radiusAt(pr.dir) + .42 * k); sp.scale.set(.5 * k, .16 * k, 1);
     }
     // pose every person: walking legs and arms, waving when happy, flailing when scared or thrown
     let k = 0;
-    const x = new THREE.Vector3(), P = this.parts, sc = .8 * Math.sqrt(this.R / 1.6), M = new THREE.Matrix4(), L = new THREE.Matrix4(), R = new THREE.Matrix4(), e = new THREE.Euler();
+    const x = new THREE.Vector3(), P = this.parts, sc = 1.3 * Math.sqrt(this.R / 1.6), M = new THREE.Matrix4(), L = new THREE.Matrix4(), R = new THREE.Matrix4(), e = new THREE.Euler();
     _s.setScalar(sc);
     for (const p of this.people) {
       let swing = 0, armUp = .12, wave = 0;
@@ -1449,10 +1472,12 @@ class Planet {
       else {
         x.crossVectors(p.dir, p.head);
         _m.makeBasis(x, p.dir, p.head); _q.setFromRotationMatrix(_m);
-        const cheering = cheer && !p.soldier, scared = panic && !p.soldier;
+        const cheering = cheer && !p.soldier, scared = panic && !p.soldier, praying = worship && !p.soldier;
+        if (praying) _q.multiply(_q2.setFromAxisAngle(XAXIS, (Math.sin(t * 3 + p.phase * .3) * .5 + .5) * .8)); // bow down
         const hop = cheering ? Math.abs(Math.sin(t * 9 + p.phase)) * .03 : Math.abs(Math.sin(t * 12 + p.phase)) * .004;
         _v.copy(p.dir).multiplyScalar(this.radiusAt(p.dir) + hop);
-        if (cheering) { armUp = 2.7; wave = Math.sin(t * 14 + p.phase) * .35; }
+        if (praying) { armUp = 2.9; wave = Math.sin(t * 3 + p.phase * .3) * .2; }
+        else if (cheering) { armUp = 2.7; wave = Math.sin(t * 14 + p.phase) * .35; }
         else if (scared) { armUp = 2.3; wave = Math.sin(t * 26 + p.phase) * .5; swing = Math.sin(t * 22 + p.phase) * .9; }
         else swing = Math.sin(t * 11 + p.phase) * .6;
       }
@@ -2197,7 +2222,7 @@ function renderMap() {
     s += `<rect x="${x - r * 2}" y="${z - r * 2}" width="${r * 4}" height="${r * 4}" fill="transparent"/></g>`;
   });
   const f = FWD.clone().applyQuaternion(ship.quaternion), ang = Math.atan2(f.x, f.z) * -180 / Math.PI;
-  for (const n of npcs) if (!n.dead) s += `<circle cx="${n.group.position.x}" cy="${n.group.position.z}" r="${fs * .22}" fill="${n.hostile ? "#ff5a6e" : n.type === "trader" ? "#c9c2a8" : "#9dff6a"}" opacity=".85"/>`;
+  for (const n of npcs) if (!n.dead) s += `<circle cx="${n.group.position.x}" cy="${n.group.position.z}" r="${fs * (n.T.big ? .5 : .22)}" fill="${n.hostile ? "#ff5a6e" : n.type === "trader" ? "#c9c2a8" : "#9dff6a"}" opacity=".85"/>`;
   s += `<g transform="translate(${ship.position.x} ${ship.position.z}) rotate(${ang})"><polygon points="0,${fs * .9} ${fs * .55},${-fs * .6} 0,${-fs * .3} ${-fs * .55},${-fs * .6}" fill="#6fe3ff"/></g>`;
   svg.innerHTML = s;
 }
@@ -2344,11 +2369,19 @@ function buildTags() {
 }
 
 // ================= alien ships (computer controlled) =================
-const NPC_TYPES = {
-  trader: { name: "Space trader", hp: 40, speed: 14, cfg: { hull: "corvette", wings: "none", engines: 3, extras: ["lights"], body: "#8a8f99", accent: "#d8a040", glow: "#ffd080", flame: "#ffb547", finish: "matte", size: 1.6 } },
-  guard: { name: "Zorgon guard", hp: 30, speed: 34, cfg: { hull: "manta", wings: "none", engines: 2, extras: ["glow"], body: "#2f6a24", accent: "#9dff6a", glow: "#9dff6a", flame: "#9dff6a", finish: "metal", size: 1 } },
-  pirate: { name: "Krell pirate", hp: 25, speed: 38, cfg: { hull: "stealth", wings: "none", engines: 2, extras: ["glow", "fins"], body: "#2a1a1a", accent: "#601010", glow: "#ff3030", flame: "#ff5030", finish: "carbon", size: 1.1 } },
+const NPC_TYPES = { // role: trader = flies planet to planet, guard = protects its planet, pirate = attacks when close,
+  // orbit = circles a planet, patrol = space police, drift = a slow giant
+  trader:  { role: "trader", name: "Space trader", hp: 40, speed: 14, cfg: { hull: "corvette", wings: "none", engines: 3, extras: ["lights"], body: "#8a8f99", accent: "#d8a040", glow: "#ffd080", flame: "#ffb547", finish: "matte", size: 1.6 } },
+  guard:   { role: "guard", name: "Zorgon guard", hp: 30, speed: 34, cfg: { hull: "manta", wings: "none", engines: 2, extras: ["glow"], body: "#2f6a24", accent: "#9dff6a", glow: "#9dff6a", flame: "#9dff6a", finish: "metal", size: 1 } },
+  pirate:  { role: "pirate", name: "Krell pirate", hp: 25, speed: 38, cfg: { hull: "stealth", wings: "none", engines: 2, extras: ["glow", "fins"], body: "#2a1a1a", accent: "#601010", glow: "#ff3030", flame: "#ff5030", finish: "carbon", size: 1.1 } },
+  miner:   { role: "orbit", name: "Space miner", hp: 35, speed: 10, low: true, cfg: { hull: "hammerhead", wings: "none", engines: 2, extras: ["lights", "turret"], body: "#c9a227", accent: "#333338", glow: "#ffd060", flame: "#ffb547", finish: "matte", size: 1.3 } },
+  tourist: { role: "orbit", name: "Tourist saucer", hp: 20, speed: 16, cfg: { hull: "saucer", wings: "none", engines: 1, extras: ["lights"], body: "#ff9ad5", accent: "#ffffff", glow: "#ffe36a", flame: "#ff9ad5", finish: "chrome", size: 1.1 } },
+  police:  { role: "patrol", name: "Space police", hp: 35, speed: 44, cfg: { hull: "interceptor", wings: "swept", engines: 2, extras: ["lights", "glow"], body: "#e8eef8", accent: "#2a5bd7", glow: "#4fa8ff", flame: "#6fe3ff", finish: "metal", size: 1.1 } },
+  freighter: { role: "trader", name: "Giant freighter", hp: 300, speed: 7, big: true, cfg: { hull: "corvette", wings: "booms", engines: 4, extras: ["lights", "turret", "antenna"], body: "#6f7686", accent: "#c97b2a", glow: "#ffb547", flame: "#ffb547", finish: "matte", size: 9 } },
+  mothership: { role: "drift", name: "Alien mothership", hp: 600, speed: 4, big: true, cfg: { hull: "saucer", wings: "ring", engines: 4, extras: ["lights", "glow", "turret"], body: "#4a5a6a", accent: "#9dff6a", glow: "#9dff6a", flame: "#9dff6a", finish: "chrome", size: 22 } },
+  dreadnought: { role: "guard", name: "Krell dreadnought", hp: 500, speed: 9, big: true, angry: 55, cfg: { hull: "battleship", wings: "wide", engines: 4, extras: ["cannons", "turret", "antenna", "lights"], body: "#2a1a1a", accent: "#a01818", glow: "#ff3030", flame: "#ff5030", finish: "carbon", size: 14 } },
 };
+let lastPlayerAttack = -99; // when you last attacked anyone: the space police remember
 const npcTemplates = {};
 const npcs = [], npcBolts = [];
 let shipHp = 100, lastPlayerHit = -99, playerDead = false;
@@ -2356,7 +2389,7 @@ class Npc {
   constructor(type, opts) {
     const T = NPC_TYPES[type];
     if (!npcTemplates[type]) { const g = new THREE.Group(); makeShipModel(T.cfg, g); npcTemplates[type] = g; }
-    this.type = type; this.name = T.name; this.hp = this.maxHp = T.hp; this.speed = T.speed; this.opts = opts;
+    this.type = type; this.T = T; this.role = T.role; this.name = T.name; this.hp = this.maxHp = T.hp; this.speed = T.speed; this.opts = opts;
     this.group = new THREE.Group(); this.model = npcTemplates[type].clone(true); this.group.add(this.model); scene.add(this.group);
     this.info = collectParts(this.model, { radius: .25 * T.cfg.size + .15, len: .5 * T.cfg.size });
     this.vel = new THREE.Vector3(); this.hostile = false; this.cool = rnd(1, 2); this.fleeUntil = 0; this.phase = Math.random() * 6;
@@ -2365,12 +2398,13 @@ class Npc {
   }
   get home() { return planets.find((p) => p.data.name === this.opts.planet); }
   spawn() {
-    const h = this.home, c = h ? h.group.position : V(this.opts.at || [0, 0, 0]);
-    this.orbitR = (h ? h.R * rnd(2.6, 4) : 30); this.orbitA = Math.random() * Math.PI * 2;
+    if (this.role === "orbit" || this.role === "patrol") { const live = planets.filter((p) => p.alive && !p.data.npc); const p = live[(Math.random() * live.length) | 0]; if (p) this.opts.planet = p.data.name; }
+    const h = this.home, c = h ? h.group.position : new THREE.Vector3().sub(WORLD_OFFSET);
+    this.orbitR = h ? Math.max(h.R * (this.T.low ? rnd(1.5, 1.9) : rnd(2.6, 4)), h.R * 1.6 + this.info.radius * 2.5) : rnd(180, 260); this.orbitA = Math.random() * Math.PI * 2;
     this.tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(rnd(-.5, .5), rnd(0, 6), rnd(-.5, .5)));
     this.group.position.copy(c).add(new THREE.Vector3(this.orbitR, rnd(-2, 2), 0).applyAxisAngle(UP, this.orbitA));
     this.hp = this.maxHp; this.hostile = false; this.group.visible = true; this.dead = false;
-    if (this.type === "trader") this.pickRoute();
+    if (this.role === "trader") this.pickRoute();
   }
   pickRoute() { const live = planets.filter((p) => p.alive); const p = live[(Math.random() * live.length) | 0]; this.dest = p ? p.group.position.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(p.R * 3)) : new THREE.Vector3(); }
   steer(target, speed, dt, turn = 2) {
@@ -2381,36 +2415,47 @@ class Npc {
   update(dt, t) {
     if (this.dead) { if ((this.respawnAt -= dt) <= 0) this.spawn(); return; }
     const pos = this.group.position, toPlayer = mode === "fly" && !playerDead ? ship.position.distanceTo(pos) : Infinity;
-    const h = this.home;
+    const h = this.home, peaceful = this.role === "trader" || this.role === "orbit";
     // decide who to fight
-    if (this.type === "pirate" && toPlayer < 35) this.hostile = true;
-    if (this.type === "guard" && h && clock() - (h.playerHitAt || -99) < 25 && toPlayer < 60) this.hostile = true;
-    if (toPlayer > 130) this.hostile = false;
-    if (this.type === "trader" && clock() < this.fleeUntil) {
-      this.steer(pos.clone().add(pos.clone().sub(ship.position).setLength(50)), this.speed * 2.6, dt);
+    if (this.role === "pirate" && toPlayer < 35) this.hostile = true;
+    if (this.role === "guard" && h && ((clock() - (h.playerHitAt || -99) < 25 && toPlayer < 70) || toPlayer < (this.T.angry || 0))) this.hostile = true;
+    if (this.role === "patrol" && clock() - lastPlayerAttack < 20 && toPlayer < 90) this.hostile = true;
+    if (toPlayer > 130 + this.info.radius * 3) this.hostile = false;
+    if (peaceful && clock() < this.fleeUntil) { // run away from you
+      this.steer(pos.clone().add(pos.clone().sub(ship.position).setLength(50)), this.speed * (this.T.big ? 1.6 : 2.6), dt);
     } else if (this.hostile) { // chase, keep a little distance, shoot
-      const side = new THREE.Vector3(Math.sin(t * .7 + this.phase), Math.cos(t * .5 + this.phase) * .5, 0).multiplyScalar(6);
-      const goal = ship.position.clone().add(side).addScaledVector(FWD.clone().applyQuaternion(head), -4);
-      const d = this.steer(goal, Math.min(this.speed * 1.3, 18 + toPlayer), dt, 2.5);
-      if (d < 8) this.vel.multiplyScalar(1 - dt * 2);
+      const keep = 5 + this.info.radius * 2.5;
+      const side = new THREE.Vector3(Math.sin(t * .7 + this.phase), Math.cos(t * .5 + this.phase) * .5, 0).multiplyScalar(keep);
+      const goal = ship.position.clone().add(side).addScaledVector(FWD.clone().applyQuaternion(head), -keep * .6);
+      const d = this.steer(goal, Math.min(this.speed * 1.3, 18 + toPlayer), dt, this.T.big ? 1 : 2.5);
+      if (d < keep) this.vel.multiplyScalar(1 - dt * 2);
       this.cool -= dt;
-      if (this.cool <= 0 && toPlayer < 70) { this.cool = rnd(.5, 1.1); this.shoot(); }
-    } else if (this.type === "trader") {
-      if (this.steer(this.dest, this.speed, dt, 1) < 4) this.pickRoute();
-    } else if (h && h.alive) { // patrol around the planet
+      if (this.cool <= 0 && toPlayer < 70 + this.info.radius * 2) { this.cool = this.T.big ? rnd(.25, .5) : rnd(.5, 1.1); this.shoot(); }
+    } else if (this.role === "trader") {
+      if (this.steer(this.dest, this.speed, dt, 1) < 4 + this.info.radius) this.pickRoute();
+    } else if (this.role === "drift") { // a giant slowly circling the middle of the galaxy
+      this.orbitA += dt * this.speed / this.orbitR;
+      const c = new THREE.Vector3().sub(WORLD_OFFSET);
+      this.steer(new THREE.Vector3(Math.cos(this.orbitA) * this.orbitR, Math.sin(this.orbitA * 3) * 20, Math.sin(this.orbitA) * this.orbitR).applyQuaternion(this.tilt).add(c), this.speed, dt, .6);
+    } else if (h && h.alive) { // circle a planet
       this.orbitA += dt * this.speed * .25 / this.orbitR;
       const goal = new THREE.Vector3(Math.cos(this.orbitA) * this.orbitR, Math.sin(this.orbitA * 2) * .8, Math.sin(this.orbitA) * this.orbitR).applyQuaternion(this.tilt).add(h.group.position);
-      this.steer(goal, this.speed * .5, dt, 2);
+      this.steer(goal, this.speed * (this.role === "orbit" ? 1 : .5), dt, 2);
+      if (this.role === "patrol" && Math.random() < dt * .02) this.spawn(); // police move on to another planet now and then
     } else { this.vel.multiplyScalar(1 - dt); }
     pos.addScaledVector(this.vel, dt);
-    for (const p of planets) { if (!p.alive) continue; const d = pos.clone().sub(p.group.position), m = p.R * 1.5; if (d.length() < m) pos.copy(p.group.position).add(d.setLength(m)); }
-    if (this.vel.lengthSq() > .01) { _m.lookAt(pos.clone().add(this.vel), pos, UP); this.group.quaternion.slerp(_q.setFromRotationMatrix(_m), Math.min(1, dt * 4)); }
-    const moving = this.vel.length() > 2;
+    for (const p of planets) { if (!p.alive) continue; const d = pos.clone().sub(p.group.position), m = p.R * 1.5 + this.info.radius; if (d.length() < m) pos.copy(p.group.position).add(d.setLength(m)); }
+    if (this.vel.lengthSq() > .01) { _m.lookAt(pos.clone().add(this.vel), pos, UP); this.group.quaternion.slerp(_q.setFromRotationMatrix(_m), Math.min(1, dt * (this.T.big ? 1 : 4))); }
+    const moving = this.vel.length() > (this.T.big ? .5 : 2);
     for (const f of this.info.flames) { f.visible = moving; f.scale.set(1, .7 + this.vel.length() / 30 + Math.random() * .3, 1); }
     animateShipParts(this.info, t + this.phase);
   }
   shoot() {
-    const from = this.group.position.clone().addScaledVector(FWD.clone().applyQuaternion(this.group.quaternion), .4);
+    for (let i = 0; i < (this.T.big ? 3 : 1); i++) this.shootOnce();
+  }
+  shootOnce() {
+    const from = this.group.position.clone().addScaledVector(FWD.clone().applyQuaternion(this.group.quaternion), this.info.radius * .6);
+    if (this.T.big) from.add(new THREE.Vector3().randomDirection().multiplyScalar(this.info.radius * .5));
     const lead = ship.position.clone().addScaledVector(vel, ship.position.distanceTo(from) / 120).add(new THREE.Vector3().randomDirection().multiplyScalar(rnd(0, 1.4)));
     const dir = lead.sub(from).normalize(), col = new THREE.Color(NPC_TYPES[this.type].cfg.glow).multiplyScalar(3);
     const m = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .7, 6), new THREE.MeshBasicMaterial({ color: col }));
@@ -2420,15 +2465,18 @@ class Npc {
   }
   damage(amount, by) {
     if (this.dead) return;
-    this.hp -= amount; this.hostile = this.type !== "trader"; lastHitNpc = this; lastHitAt = clock();
-    if (this.type === "trader") this.fleeUntil = clock() + 8;
+    this.hp -= amount; this.hostile = !(this.role === "trader" || this.role === "orbit"); lastHitNpc = this; lastHitAt = clock();
+    if (this.role !== "pirate") lastPlayerAttack = clock();
+    if (!this.hostile) this.fleeUntil = clock() + 8;
     const h = this.home; if (h) h.playerHitAt = clock(); // the whole guard squad comes for you
     spark(this.group.position, .6);
     if (this.hp <= 0) this.destroy();
   }
   destroy() {
-    this.dead = true; this.group.visible = false; this.tag.hidden = true; this.respawnAt = 40;
-    boom(this.group.position, 2.2); sfx.boom(2.2, this.group.position);
+    this.dead = true; this.group.visible = false; this.tag.hidden = true; this.respawnAt = this.T.big ? 120 : 40;
+    const big = this.T.big ? this.info.radius : 1;
+    boom(this.group.position, 2.2 * Math.sqrt(big)); sfx.boom(2.2 * Math.min(4, Math.sqrt(big)), this.group.position);
+    if (this.T.big) { ring(this.group.position, new THREE.Vector3(0, 1, 0), this.info.radius * 4, 2.5, new THREE.Color(2.5, 1.6, 1), .08); flashScreen("#fff3d6", .5); shake = Math.max(shake, .3); }
     const v = new THREE.Vector3();
     for (let i = 0; i < 14; i++) chunks.spawn(this.group.position, v.randomDirection().multiplyScalar(rnd(2, 7)).clone(), rnd(.03, .08), new THREE.Color(NPC_TYPES[this.type].cfg.body), rnd(1.5, 3));
     toast(`💥 ${this.name} destroyed`, "", 1600);
@@ -2437,9 +2485,10 @@ class Npc {
 function spawnNpcs() {
   for (const n of npcs) { scene.remove(n.group); n.tag.remove(); }
   npcs.length = 0;
-  for (let i = 0; i < 6; i++) npcs.push(new Npc("trader", {}));
-  for (let i = 0; i < 4; i++) npcs.push(new Npc("guard", { planet: "Zorg Prime" }));
-  for (let i = 0; i < 4; i++) npcs.push(new Npc("pirate", { planet: "Krell Station" }));
+  const add = (type, n, opts = {}) => { for (let i = 0; i < n; i++) npcs.push(new Npc(type, { ...opts })); };
+  add("trader", 6); add("guard", 4, { planet: "Zorg Prime" }); add("pirate", 4, { planet: "Krell Station" });
+  add("miner", 3); add("tourist", 4); add("police", 3);
+  add("freighter", 2); add("mothership", 1); add("dreadnought", 1, { planet: "Krell Station" });
 }
 function npcStep(dt, t) {
   for (const n of npcs) n.update(dt, t);
@@ -2481,12 +2530,15 @@ let gameStarted = false;
 // Opened any other way (a file, a preview), it runs alone with the world saved in this browser.
 const WORLD_OFFSET = new THREE.Vector3(); // your planet sits at the centre of your screen's world
 const TOKENKEY = "tinyplanets.token";
+// The game page can live on an always-on static host; the game server (which may sleep) lives here:
+const GAME_SERVER = "tiny-planet-ams7.onrender.com";
+const SERVER_HOST = /^(localhost|127\.|\[::1\])/.test(location.hostname) || location.hostname === GAME_SERVER ? location.host : GAME_SERVER;
 const net = (() => {
   const online = /^https?:$/.test(location.protocol) && !/claude\.ai|claudeusercontent|anthropic|localhost:0/.test(location.hostname) && !new URLSearchParams(location.search).has("offline");
   let ws = null, retry = 1000;
   const handlers = {};
   function connect() {
-    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + SERVER_HOST + "/ws");
     ws.onopen = () => { retry = 1000; ws.send(JSON.stringify({ t: "hello", token: load(TOKENKEY) })); setPill(); };
     ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } try { handlers[m.t]?.(m); } catch (err) { console.error("net", m.t, err); } };
     ws.onclose = () => { setPill(); setTimeout(connect, retry); retry = Math.min(15000, retry * 1.6); };
@@ -2600,7 +2652,20 @@ function setupNet() {
   net.on("left", (m) => remotes.get(m.pid)?.remove());
   net.on("hurt", (m) => { if (mode !== "fly") return; hurtPlayer(m.dmg); if (shipHp <= 0) toast(`💥 ${esc(m.by)} destroyed your ship!`, "boom", 3000); });
   net.on("shot", (m) => remoteShot(m));
-  net.connect();
+  wakeServer().then(() => net.connect());
+}
+// A free server sleeps when nobody plays. Ping it and show a bar while it wakes (about a minute).
+async function wakeServer() {
+  const t0 = performance.now(), WAKE = 60, text = $("wakeText"), fill = $("wakeFill");
+  const ping = async () => { try { const ctl = new AbortController(); setTimeout(() => ctl.abort(), 8000); const r = await fetch(location.protocol + "//" + SERVER_HOST + "/health", { cache: "no-store", signal: ctl.signal }); return r.ok; } catch { return false; } };
+  if (await ping()) { fill.style.width = "100%"; return; }
+  const tick = setInterval(() => {
+    const s = (performance.now() - t0) / 1000, left = Math.max(1, Math.ceil(WAKE - s));
+    fill.style.width = Math.min(95, s / WAKE * 100) + "%";
+    text.textContent = s < WAKE ? `The server is waking up… about ${left}s left` : "Almost there… still waking up";
+  }, 250);
+  while (!(await ping())) await new Promise((r) => setTimeout(r, 2000));
+  clearInterval(tick); fill.style.width = "100%"; text.textContent = "Server is awake!";
 }
 function addPlanet(data) {
   if (!data.design.around) data.design.around = {};
@@ -2627,7 +2692,7 @@ function showJoin(world) { // first visit: pick a name and a planet
     base.design = { ...designFrom(tpl, (Math.random() * 1000) | 0), around: { sats: 1 } };
     base.decor = base.decor.map((d) => (d.type === "sign" && d.text === "GILAD'S ROCK" ? { ...d, text: (planetName || name).toUpperCase().slice(0, 20) } : d));
     net.send({ t: "join", name, planetName: planetName || name + "'s Planet", planet: { design: base.design, decor: base.decor }, ship: { ...structuredClone(PRESETS.fighter), name: name + "'s Ship" } });
-    $("joinForm").hidden = true; $("joinWait").hidden = false; $("joinWait").textContent = "Creating your planet…";
+    $("joinForm").hidden = true; $("joinWait").hidden = false; $("wakeText").textContent = "Creating your planet…";
   };
   $("joinGo").onclick = go;
   $("joinPlanet").onkeydown = $("joinName").onkeydown = (e) => { if (e.key === "Enter") go(); };
@@ -2650,12 +2715,48 @@ function enterWorld(you, world) {
 
 // ================= flying =================
 const keys = new Set(), vel = new THREE.Vector3(), head = new THREE.Quaternion();
-const turn = new THREE.Vector3(), mouseTurn = new THREE.Vector2(), lean = new THREE.Vector2(), leanQ = new THREE.Quaternion();
+const turn = new THREE.Vector3(), mouseTurn = new THREE.Vector2(), pendingTurn = new THREE.Vector2(), lean = new THREE.Vector2(), leanQ = new THREE.Quaternion(), camPos = new THREE.Vector3();
+let throttle = 0, lockTarget = null, lockCand = null, lockT = 0;
+// specks of space dust drifting past make speed easy to feel
+const dust = (() => {
+  const N = 500, pos = new Float32Array(N * 3), g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9fb4ff, size: .045, transparent: true, opacity: .5, depthWrite: false }));
+  pts.frustumCulled = false; pts.visible = false; scene.add(pts);
+  return { pts, pos, N, ready: false };
+})();
+function spaceDust(dt, spd) {
+  const R = 22, c = ship.position;
+  dust.pts.visible = mode === "fly";
+  for (let i = 0; i < dust.N; i++) {
+    const j = i * 3, dx = dust.pos[j] - c.x, dy = dust.pos[j + 1] - c.y, dz = dust.pos[j + 2] - c.z;
+    if (!dust.ready || dx * dx + dy * dy + dz * dz > R * R) { const v = new THREE.Vector3().randomDirection().multiplyScalar(R * Math.cbrt(Math.random())); dust.pos.set([c.x + v.x, c.y + v.y, c.z + v.z], j); }
+  }
+  dust.ready = true; dust.pts.geometry.attributes.position.needsUpdate = true;
+  dust.pts.material.opacity = .25 + Math.min(.45, spd / 60);
+}
+function updateLock(dt, fwd) { // weapons lock onto the enemy you are fighting
+  let cand = aimNpc && !aimNpc.dead ? aimNpc : null;
+  if (!cand) { let best = Math.cos(.45); for (const n of fighters()) { if (n.dead || !(n.hostile || n === lastHitNpc)) continue; const to = n.group.position.clone().sub(ship.position), d = to.length(); if (d > 150) continue; const c = to.normalize().dot(fwd); if (c > best) { best = c; cand = n; } } }
+  if (cand && cand === lockCand) lockT += dt; else { lockCand = cand; lockT = 0; }
+  if (lockCand && lockT > .6 && lockTarget !== lockCand) { lockTarget = lockCand; sfx.lock(); }
+  if (lockTarget && (lockTarget.dead || lockTarget.group.position.distanceTo(ship.position) > 170 || lockTarget.group.position.clone().sub(ship.position).normalize().dot(fwd) < Math.cos(1.1))) lockTarget = null;
+  const box = $("lockBox"), show = lockTarget || lockCand;
+  if (!show) { box.hidden = true; return; }
+  const v = show.group.position.clone().project(camera);
+  if (v.z > 1) { box.hidden = true; return; }
+  box.hidden = false; box.classList.toggle("locked", show === lockTarget);
+  const r = Math.max(26, Math.min(120, show.info.radius * 900 / Math.max(1, show.group.position.distanceTo(camera.position))));
+  const shrink = show === lockTarget ? 1 : 1.8 - Math.min(1, lockT / .6) * .8;
+  box.style.left = (v.x + 1) / 2 * innerWidth + "px"; box.style.top = (1 - v.y) / 2 * innerHeight + "px";
+  box.style.width = box.style.height = r * shrink + "px";
+  $("lockText").textContent = show === lockTarget ? `LOCKED · ${show.name}` : "LOCKING…";
+}
 let roll = null, lastHitNpc = null, aimNpc = null;
 const rolling = () => !!roll;
 function barrelRoll() {
   if (mode !== "fly" || roll) return;
-  const dir = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : keys.has("KeyD") || keys.has("ArrowRight") ? -1 : Math.random() < .5 ? 1 : -1;
+  const dir = keys.has("KeyA") ? 1 : keys.has("KeyD") ? -1 : Math.random() < .5 ? 1 : -1;
   roll = { t: 0, dur: .65, dir };
   vel.addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(head), dir * 16); sfx.roll();
 }
@@ -2668,7 +2769,7 @@ function startFlying() { // only switches to flight; the ship waits until you pr
   camAnim = null; viewShift.set(0, 0); camera.clearViewOffset();
   mode = "fly"; document.body.classList.add("flying");
   controls.enabled = false; tip.hidden = true;
-  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion); turn.set(0, 0, 0); mouseTurn.set(0, 0); lean.set(0, 0); leanQ.identity(); roll = null; model.quaternion.identity();
+  placeOrbit(orbitT); ship.scale.setScalar(1); head.copy(ship.quaternion); turn.set(0, 0, 0); mouseTurn.set(0, 0); pendingTurn.set(0, 0); lean.set(0, 0); leanQ.identity(); roll = null; throttle = 0; camPos.copy(camera.position); lockTarget = lockCand = null; model.quaternion.identity();
   vel.set(0, 0, 0);
   aimNdc.set(0, 0); $("crosshair").style.left = "50%"; $("crosshair").style.top = "50%";
   $("flyHud").hidden = false; $("crosshair").hidden = false; $("weapons").hidden = false;
@@ -2680,7 +2781,7 @@ function land() { // fly into a black hole, come out next to home
   if (mode !== "fly") return;
   if (document.pointerLockElement) document.exitPointerLock();
   mode = "warp"; keys.clear(); firing = false;
-  $("crosshair").hidden = true; $("weapons").hidden = true; $("target").hidden = true;
+  $("crosshair").hidden = true; $("weapons").hidden = true; $("target").hidden = true; $("lockBox").hidden = true; lockTarget = lockCand = null; dust.pts.visible = false;
   if (navArrow) navArrow.visible = false;
   const fwd = FWD.clone().applyQuaternion(head), size = .35 + state.ship.size * .25;
   const hole = makeBlackHole(size);
@@ -2822,8 +2923,8 @@ function fireWeapon(kind) {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .16, 12), mats.metal); b.rotation.x = Math.PI / 2; g.add(b);
     const n = new THREE.Mesh(new THREE.ConeGeometry(.02, .06, 12), mats.flag); n.rotation.x = Math.PI / 2; n.position.z = .11; g.add(n);
     g.position.copy(muzzleWorld()); g.quaternion.copy(ship.quaternion); g.scale.setScalar(sz); scene.add(g);
-    const target = aimTarget();
-    bolts.push({ kind, obj: g, v: aimPoint.clone().sub(g.position).normalize().multiplyScalar(40).add(vel), life: 8, target, speed: 95 });
+    const target = lockTarget && !lockTarget.dead ? { npc: lockTarget } : aimTarget();
+    bolts.push({ kind, obj: g, v: (target && target.npc ? target.npc.group.position.clone() : aimPoint.clone()).sub(g.position).normalize().multiplyScalar(40).add(vel), life: 8, target, speed: 95 });
     sfx.missile();
   } else if (kind === "bomb") {
     const g = new THREE.Mesh(new THREE.SphereGeometry(.05 * sz, 20, 14), new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: .6, roughness: .3 }));
@@ -2833,7 +2934,7 @@ function fireWeapon(kind) {
     bolts.push({ kind, obj: g, v: vel.clone().multiplyScalar(.7).addScaledVector(fwd, 6).addScaledVector(upv, -3), life: 12 });
     sfx.bomb();
   } else if (kind === "atom") {
-    const tp = aimPlanet || nearestPlanet(150), target = aimNpc ? { npc: aimNpc } : tp ? { p: tp, local: aimPlanet ? tp.mesh.worldToLocal(aimPoint.clone()) : tp.mesh.worldToLocal(ship.position.clone()).normalize().multiplyScalar(tp.R) } : null;
+    const tp = aimPlanet || nearestPlanet(150), target = lockTarget && !lockTarget.dead ? { npc: lockTarget } : aimNpc ? { npc: aimNpc } : tp ? { p: tp, local: aimPlanet ? tp.mesh.worldToLocal(aimPoint.clone()) : tp.mesh.worldToLocal(ship.position.clone()).normalize().multiplyScalar(tp.R) } : null;
     if (!target) { toast("No target in range for the atom bomb. Fly closer!"); lastShot[kind] = 0; return; }
     const g = new THREE.Mesh(new THREE.SphereGeometry(.07 * sz, 20, 14), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 3, .8) }));
     g.position.copy(muzzleWorld()); scene.add(g);
@@ -2937,56 +3038,68 @@ function flyStep(dt) {
   if (clock() - lastPlayerHit > 4) shipHp = Math.min(100, shipHp + 5 * dt); // shields recharge
   $("hudHp").textContent = Math.ceil(shipHp); $("hudHp").style.color = shipHp < 35 ? "var(--danger)" : "";
   const boost = k("ShiftLeft") || k("ShiftRight"), size = state.ship.size, thrust = k("KeyW");
-  // steering: moving the mouse turns the ship by that much; a still mouse means a still ship
-  const SENS = ui.sens || .0026, mx = -mouseTurn.x * SENS, my = mouseTurn.y * SENS; mouseTurn.set(0, 0);
-  const keyYaw = (k("KeyA") || k("ArrowLeft") ? 1 : 0) - (k("KeyD") || k("ArrowRight") ? 1 : 0);
+  // turning: the mouse turns the ship exactly as far as you move it, eased over a few frames so it feels smooth
+  const SENS = ui.sens || .0026;
+  pendingTurn.x += mouseTurn.y * SENS; pendingTurn.y += -mouseTurn.x * SENS; mouseTurn.set(0, 0);
+  const ease = 1 - Math.exp(-dt * 16), my = pendingTurn.x * ease, mx = pendingTurn.y * ease; pendingTurn.x -= my; pendingTurn.y -= mx;
+  const keyYaw = (k("ArrowLeft") ? 1 : 0) - (k("ArrowRight") ? 1 : 0);
   const keyPitch = (k("ArrowDown") ? 1 : 0) - (k("ArrowUp") ? 1 : 0);
-  const roll = (k("KeyE") ? 1 : 0) - (k("KeyQ") ? 1 : 0);
-  turn.lerp(new THREE.Vector3(keyPitch * 1.2, keyYaw * 1.6, roll * 2.2), Math.min(1, dt * 9));
+  const rollKey = (k("KeyE") ? 1 : 0) - (k("KeyQ") ? 1 : 0);
+  turn.lerp(new THREE.Vector3(keyPitch * 1.2, keyYaw * 1.5, rollKey * 2), Math.min(1, dt * 5)); // keys speed up and slow down gently
   head.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(turn.x * dt + my, turn.y * dt + mx, turn.z * dt))).normalize();
   ship.quaternion.copy(head);
-  // the ship leans into turns so you can feel where it is going
-  lean.lerp(new THREE.Vector2((mx + turn.y * dt) / Math.max(dt, .001), (my + turn.x * dt) / Math.max(dt, .001)), Math.min(1, dt * 6));
-  const lx = THREE.MathUtils.clamp(lean.x, -2, 2), ly = THREE.MathUtils.clamp(lean.y, -2, 2);
-  leanQ.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(ly * .12, lx * .15, lx * .3, "YXZ")), Math.min(1, dt * 8));
+  // the ship banks into turns, and floats a little when it is still
+  lean.lerp(new THREE.Vector2((mx + turn.y * dt) / Math.max(dt, .001), (my + turn.x * dt) / Math.max(dt, .001)), Math.min(1, dt * 4));
+  const lx = THREE.MathUtils.clamp(lean.x, -2, 2), ly = THREE.MathUtils.clamp(lean.y, -2, 2), tt = clock();
+  const idle = Math.max(0, 1 - vel.length() / 6);
+  leanQ.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(ly * .1 + Math.sin(tt * .9) * .03 * idle, lx * .12, lx * .35 + Math.sin(tt * .7) * .05 * idle, "YXZ")), Math.min(1, dt * 6));
   model.quaternion.copy(leanQ);
+  model.position.set(0, Math.sin(tt * 1.3) * .012 * size * idle, 0);
   if (roll) { // barrel roll: a full spin and a quick sidestep
     roll.t += dt; const k2 = Math.min(1, roll.t / roll.dur);
     model.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(FWD, roll.dir * Math.PI * 2 * ss(0, 1, k2)));
     if (k2 >= 1) roll = null;
   }
-  const headUp = UP.clone().applyQuaternion(head), fwd = FWD.clone().applyQuaternion(head);
-  const max = boost ? 150 : 28, accel = boost ? 170 : 26;
-  if (thrust) vel.addScaledVector(fwd, accel * dt);
-  if (k("KeyS")) { const f = vel.dot(fwd); if (f > .5) vel.addScaledVector(fwd, -Math.min(f, 60 * dt)); else vel.addScaledVector(fwd, -18 * dt); } // brake, then reverse
-  const fv = vel.dot(fwd); if (!roll) vel.lerp(fwd.clone().multiplyScalar(fv), Math.min(1, dt * 3)); // fly where you point, little drifting
+  const headUp = UP.clone().applyQuaternion(head), fwd = FWD.clone().applyQuaternion(head), right = new THREE.Vector3(-1, 0, 0).applyQuaternion(head);
+  // engines: power builds up and fades out instead of switching on and off
+  throttle += ((thrust ? (boost ? 1 : .55) : 0) - throttle) * Math.min(1, dt * (thrust ? 2.2 : 3));
+  const max = boost ? 150 : 28;
+  vel.addScaledVector(fwd, throttle * (boost ? 300 : 47) * dt);
+  const strafe = (k("KeyD") ? 1 : 0) - (k("KeyA") ? 1 : 0);
+  if (strafe) vel.addScaledVector(right, strafe * 22 * dt); // A / D slide sideways
+  if (k("KeyS")) { const f = vel.dot(fwd); if (f > .5) vel.addScaledVector(fwd, -Math.min(f, 45 * dt)); else vel.addScaledVector(fwd, -16 * dt); } // brake, then reverse
+  // space has no air: you keep drifting. Flight assist slowly lines your drift up with where you point.
+  const fv = vel.dot(fwd), side = vel.clone().addScaledVector(fwd, -fv);
+  if (!roll && !strafe) vel.addScaledVector(side, -Math.min(1, dt * 1.1));
   if (fv < -12) vel.addScaledVector(fwd, -12 - fv); // reverse is slow
-  if (!thrust && !k("KeyS")) vel.multiplyScalar(Math.exp(-1.4 * dt)); // let go and the ship slows to a stop
-  else if (thrust) vel.multiplyScalar(Math.exp(-.3 * dt));
-  if (!thrust && !k("KeyS") && vel.length() < .3) vel.set(0, 0, 0);
-  if (vel.length() > max) vel.lerp(vel.clone().setLength(max), Math.min(1, dt * 3));
+  if (!thrust && !k("KeyS")) vel.multiplyScalar(Math.exp(-.18 * dt)); // coasting: slows down only a little
+  if (vel.length() > max) vel.lerp(vel.clone().setLength(max), Math.min(1, dt * 1.5));
   ship.position.addScaledVector(vel, dt);
   for (const p of planets) { // bump off planets
     if (!p.alive) continue;
     const d = ship.position.clone().sub(p.group.position), min = p.R * 1.2 + ship.userData.radius;
     if (d.length() < min) { d.setLength(min); ship.position.copy(p.group.position).add(d); const nrm = d.normalize(); vel.addScaledVector(nrm, -vel.dot(nrm) * 1.6); }
   }
-  // camera: behind and above, looking ahead, so the whole ship sits at the bottom-middle of the screen
-  const L = ship.userData.len, dist = .5 + L * 3.6 + Math.min(.8, vel.length() / 200) * L * 2;
-  camera.position.copy(ship.position).addScaledVector(fwd, -dist).addScaledVector(headUp, dist * .22);
+  // camera: follows on a soft spring, pulls back and widens with speed
+  const L = ship.userData.len, spd = vel.length(), dist = .5 + L * 3.6 + Math.min(1, spd / 150) * L * 2.2;
+  const camWant = ship.position.clone().addScaledVector(fwd, -dist).addScaledVector(headUp, dist * .22);
+  camPos.lerp(camWant, 1 - Math.exp(-dt * 14)); if (camPos.distanceTo(camWant) > dist * 2) camPos.copy(camWant);
+  camera.position.copy(camPos);
   camera.up.copy(headUp);
   camera.lookAt(ship.position.clone().addScaledVector(fwd, dist * 3.2).addScaledVector(headUp, dist * .2));
+  camera.fov += ((58 + Math.min(16, spd / 9)) - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
+  spaceDust(dt, spd);
   updateAim(); // after the camera moves, so shots go exactly under the cursor
+  updateLock(dt, fwd);
   if ((firing && weapon === "laser") || k("Space")) fireWeapon("laser");
   if (firing && (weapon === "missile" || weapon === "bomb")) fireWeapon(weapon);
-  const moving = thrust || vel.length() > 2;
-  for (const f of ship.userData.flames) { f.visible = moving; f.scale.set(1, (thrust ? (boost ? 3.2 : 1.7) : .6 + vel.length() / 60) + Math.random() * .35, 1); }
+  const moving = throttle > .05 || spd > 2;
+  for (const f of ship.userData.flames) { f.visible = moving; f.scale.set(1, .5 + throttle * (boost ? 2.8 : 1.6) + Math.random() * .3, 1); }
   if (boost && thrust) for (let i = 0; i < 3; i++) fire.spawn(ship.position.clone().addScaledVector(fwd, -.3 * size), fwd.clone().multiplyScalar(-8).add(new THREE.Vector3().randomDirection()), .3, .06 * size, C(state.ship.flame, 2), DARK);
   const boosting = boost && thrust;
   if (boosting && !wasBoost) sfx.boostKick();
   wasBoost = boosting; sfx.engine(thrust ? 1 : 0, boosting);
-  camera.fov += ((boost && k("KeyW") ? 72 : 58) - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
   // HUD
   $("hudSpeed").textContent = fmt(vel.length() * 10);
   if (nav) {
@@ -3049,7 +3162,7 @@ function updateTags() {
     p.tag.innerHTML = `${p === nav ? "➤ " : ""}${esc(p.data.name)}<br><b>${esc(p.data.owner)}</b> · ${p.alive ? fmt(p.data.pop) + " people" : "destroyed"} · ${fmt(dist * 1000)} km`;
   }
   for (const n of fighters()) { // names over alien ships and other players that are close
-    const d = n.group.position.distanceTo(ship.position), show = !n.dead && (n.remote ? d < 220 : flying && d < (n.hostile ? 140 : 45));
+    const d = n.group.position.distanceTo(ship.position), show = !n.dead && (n.remote ? d < 220 : flying && d < (n.hostile ? 140 : n.T && n.T.big ? 260 : 45));
     if (!show) { n.tag.hidden = true; continue; }
     v.copy(n.group.position); v.y += n.info.radius * 1.5; v.project(camera);
     if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) { n.tag.hidden = true; continue; }

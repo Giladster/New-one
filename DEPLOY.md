@@ -42,3 +42,14 @@ npm install
 npm start
 ```
 Then open http://localhost:3000 in two browser windows to play against yourself.
+
+## Optional: "server is waking up" screen
+
+The free server sleeps after 15 minutes. While it sleeps, Render shows its own page, not the game.
+To show our own wake-up bar, host the game page on a free **Static Site** (it never sleeps):
+
+1. Render → New → Static Site → pick this repo.
+2. Build command: leave empty. Publish directory: `game`.
+3. Open the static site's link. It wakes the game server and shows a progress bar (about 1 minute).
+
+The game server address is set in `game/index.html` (`GAME_SERVER`).
