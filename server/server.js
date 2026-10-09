@@ -118,6 +118,7 @@ function handle(ws, c, m) {
       const p = Object.values(world.players).find((x) => x.token && x.token === m.token);
       if (p && world.planets[p.planetId]) { c.player = p; p.lastSeen = Date.now(); markPlayer(p); }
       if (process.env.ADMIN_KEY && typeof m.god === "string" && m.god === process.env.ADMIN_KEY) { c.god = true; send(ws, { t: "god" }); } // only the game owner knows this key
+      if (c.player && c.player.pending) { send(ws, { t: "paid", amount: c.player.pending, from: "Ransoms" }); c.player.pending = 0; markPlayer(c.player); }
       send(ws, { t: "welcome", you: c.player ? publicPlayer(c.player) : null, world: snapshot(), needsSeed: !Object.values(world.planets).some((p) => !p.ownerId) });
       break;
     }
@@ -167,11 +168,21 @@ function handle(ws, c, m) {
       if (p.dead) broadcast({ t: "chat", msg: { who: "💥", text: `${p.name} was destroyed${me ? " by " + me.name : ""}!`, t: clockStr() } });
       break;
     }
-    case "troops": { const p = world.planets[m.id]; if (!p || p.dead) return; p.troops = (p.troops || 0) + Math.min(10, m.count | 0); markPlanet(p); broadcast({ t: "troops", id: p.id, n: m.n, count: m.count | 0 }, ws); broadcast(stat(p)); break; }
+    case "troops": {
+      const p = world.planets[m.id]; if (!p || p.dead) return; const count = Math.max(0, Math.min(10, m.count | 0));
+      if (p.conqueredBy && me && me.id !== p.conqueredBy.id) { // troops free a conquered planet
+        p.freeing = (p.freeing || 0) + count; markPlanet(p);
+        if (p.freeing >= 10) { const was = p.conqueredBy; p.conqueredBy = null; p.freeing = 0; p.troops = 0; broadcast({ t: "conquer", id: p.id, by: null }); broadcast({ t: "chat", msg: { who: "🕊", text: `${me.name} freed ${p.name} from ${was.name}!`, t: clockStr() } }); }
+        return;
+      }
+      if (me && p.ownerId === me.id) return; // not on your own people
+      p.troops = (p.troops || 0) + count; if (me) p.troopsBy = { id: me.id, name: me.name }; markPlanet(p);
+      broadcast({ t: "troops", id: p.id, n: m.n, count }, ws); broadcast(stat(p)); break;
+    }
     case "mail": { const p = world.planets[m.id]; if (!p || !me) return; const note = { who: me.name, text: text(m.text, 160), t: clockStr() }; p.mail.push(note); if (p.mail.length > MAX_MAIL) p.mail.shift(); markPlanet(p); broadcast({ t: "mail", id: p.id, note }); break; }
     case "chat": { if (!me) return; const msg = { who: me.name, text: text(m.text, 200), t: clockStr() }; world.chat.push(msg); if (world.chat.length > MAX_CHAT) world.chat.shift(); dirty.add("chat"); broadcast({ t: "chat", msg }); break; }
     case "rebuild": { if (!mine) return; Object.assign(mine, { dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
-    case "resetPlanet": { if (!mine || !m.planet) return; Object.assign(mine, { design: m.planet.design, decor: m.planet.decor, sculpt: null, paint: null, dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
+    case "resetPlanet": { if (!mine || !m.planet) return; Object.assign(mine, { design: m.planet.design, decor: m.planet.decor, sculpt: null, paint: null, dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); if (c.god) Object.assign(mine, { pranks: [], conqueredBy: null, freeing: 0 }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
     case "shot": { if (!me) return; broadcast({ t: "shot", pid: me.id, kind: m.kind, from: m.from, to: m.to }, ws); break; }
     case "prank": { // leave a prank on someone's planet; it fades after 2 to 4 days
       const p = world.planets[m.id], r = m.prank; if (!p || !me || p.dead || !r || !PRANK_TYPES.includes(r.type)) return;
@@ -187,6 +198,31 @@ function handle(ws, c, m) {
       if (!mine || !Array.isArray(mine.pranks)) return;
       const before = mine.pranks.length; mine.pranks = mine.pranks.filter((k) => k.id !== m.pid);
       if (mine.pranks.length !== before) { markPlanet(mine); broadcast({ t: "unprank", id: mine.id, pid: m.pid }); }
+      break;
+    }
+    case "godKey": { // the owner types their key in the game
+      if (!process.env.ADMIN_KEY) return send(ws, { t: "godNo", why: "nokey" });
+      if (typeof m.key === "string" && m.key === process.env.ADMIN_KEY) { c.god = true; send(ws, { t: "god" }); } else send(ws, { t: "godNo", why: "wrong" });
+      break;
+    }
+    case "godConquer": { if (!c.god || !mine) return; mine.conqueredBy = { id: "bot", name: "Test Bot" }; markPlanet(mine); broadcast({ t: "conquer", id: mine.id, by: mine.conqueredBy }); break; }
+    case "wave": { if (!me) return; const to = socketOf(m.to); if (to) send(to, { t: "wave", from: me.name, kind: ["wave", "duel", "msg"].includes(m.kind) ? m.kind : "wave", text: text(m.text || "", 120) }); break; }
+    case "ransom": { // the owner pays to get their planet back
+      if (!mine || !mine.conqueredBy) return;
+      const by = mine.conqueredBy, amount = Math.max(0, Math.min(5000, +m.amount || 0)), boss = world.players[by.id];
+      mine.conqueredBy = null; mine.freeing = 0; markPlanet(mine); broadcast({ t: "conquer", id: mine.id, by: null });
+      if (boss) { const s2 = socketOf(boss.id); if (s2) send(s2, { t: "paid", amount, from: me.name }); else { boss.pending = (boss.pending || 0) + amount; markPlayer(boss); } }
+      broadcast({ t: "chat", msg: { who: "💰", text: `${me.name} paid a ransom to ${by.name} and ${mine.name} is free!`, t: clockStr() } });
+      break;
+    }
+    case "newPlanet": { // your planet was destroyed or taken: start a fresh one somewhere new
+      if (!me || !mine || (!mine.dead && !mine.conqueredBy)) return;
+      mine.ownerId = null; mine.owner = "ruins of " + me.name; markPlanet(mine); broadcast({ t: "planetPatch", id: mine.id, patch: { owner: mine.owner } });
+      const src = m.planet || {};
+      const planet = { id: id("p"), ownerId: me.id, name: uniqueName(me.name + "'s New World"), owner: me.name, R: 1.6, pos: placeNewPlanet(), hp: 100, pop: 8000, maxPop: 8000, dead: false, troops: 0,
+        design: src.design || {}, decor: Array.isArray(src.decor) ? src.decor.slice(0, 200) : [], sculpt: null, paint: null, mail: [], stamps: [], pranks: [] };
+      world.planets[planet.id] = planet; me.planetId = planet.id; markPlanet(planet); markPlayer(me);
+      broadcast({ t: "planetAdd", planet, player: publicPlayer(me) }, ws); send(ws, { t: "newHome" });
       break;
     }
     case "godShield": { if (!c.god || !mine) return; mine.shield = !!m.on; markPlanet(mine); break; }
@@ -215,7 +251,13 @@ setInterval(() => {
   for (const p of Object.values(world.planets)) {
     if (p.dead || !p.troops) continue;
     p.pop = Math.max(0, p.pop - p.maxPop * .0012 * p.troops * 2);
-    if (p.pop <= 0) applyHit(p, "atom");
+    if (p.pop <= 0) {
+      if (p.troopsBy && p.troopsBy.id !== p.ownerId && !p.conqueredBy) { // the troops win: the planet is conquered, not destroyed
+        p.conqueredBy = p.troopsBy; p.pop = p.maxPop * .3; p.troops = 0;
+        broadcast({ t: "conquer", id: p.id, by: p.conqueredBy, pop: p.pop });
+        broadcast({ t: "chat", msg: { who: "🏴", text: `${p.conqueredBy.name} conquered ${p.name}!`, t: clockStr() } });
+      } else applyHit(p, "atom");
+    }
     markPlanet(p); broadcast(stat(p));
   }
 }, 2000);

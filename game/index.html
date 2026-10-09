@@ -95,6 +95,13 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .ddm button { text-align: left; }
 .tabs { display: flex; gap: 4px; position: sticky; top: -14px; z-index: 2; padding: 6px 0; margin-top: -4px; background: rgba(14, 18, 38, .96); }
 .tabs button { flex: 1; padding: 6px 4px; font-size: 12px; }
+.say { padding: 10px 12px; border-radius: 10px; background: rgba(111,227,255,.08); border: 1px solid var(--line); font-size: 13px; line-height: 1.4; min-height: 20px; }
+.hail-opts { display: grid; gap: 6px; }
+.hail-opts button { text-align: left; }
+.mission { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.mission .bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+.mission .bar i { display: block; height: 100%; background: var(--accent); }
+.mission.done b { color: #7dff9b; }
 .prank-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .prank-row b { color: var(--accent); }
 .prank-row time { color: var(--muted); font-family: var(--mono, monospace); }
@@ -118,12 +125,18 @@ body.joining .hud:not(#p-join), body.joining .hint { display: none !important; }
 .tag.edge { opacity: .55; font-size: 10px; }
 .tag.nav { color: var(--cyan); opacity: 1; }
 .tag.dead { color: var(--danger); }
+.tag.blip { font-size: 13px; transform: translate(-50%, -50%); opacity: .85; }
+.tag.friend { color: #7dff9b; }
+.tag.cop { color: #8fc4ff; }
+.tag.threat { color: #ff3b52; font-weight: 700; animation: lockpulse .5s ease-in-out infinite alternate; }
 #toasts { position: fixed; z-index: 5; top: calc(120px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; pointer-events: none; width: max-content; max-width: calc(100% - 32px); }
 .toast { padding: 9px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font: 600 15px var(--display); text-align: center; animation: pop .25s ease-out; }
 .toast.boom { border-color: var(--danger); color: #ffd0d6; font-size: 18px; }
 @keyframes pop { from { transform: scale(.85); opacity: 0; } }
 #flash { position: fixed; inset: 0; z-index: 6; pointer-events: none; background: #fff; opacity: 0; }
 
+.hpbar { display: inline-block; vertical-align: middle; width: 110px; height: 9px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; margin: 0 4px; }
+.hpbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a6e, #ffb547 40%, #7dff9b); transition: width .2s; }
 #flyHud { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; margin-inline: auto; width: max-content; max-width: calc(100% - 32px); flex-wrap: wrap; justify-content: center; padding: 8px 14px; display: flex; gap: 16px; align-items: center; font: 12px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #flyHud b { color: var(--cyan); font-weight: 500; }
 #navHud button { padding: 1px 7px; font-size: 12px; margin-left: 4px; }
@@ -140,6 +153,11 @@ body.joining .hud:not(#p-join), body.joining .hint { display: none !important; }
 .shop button span { font-size: 11px; opacity: .75; }
 .wakebar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
 .wakebar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #9cf); transition: width .4s; }
+#minimap { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 180px; height: 180px; border-radius: 50%; background: rgba(8, 10, 26, .72); border: 1px solid var(--line); z-index: 3; pointer-events: none; }
+@media (max-width: 700px) { #minimap { width: 120px; height: 120px; } }
+#threats > div { position: fixed; z-index: 4; pointer-events: none; transform: translate(-50%, -50%); color: #ff3b52; font: 700 12px var(--mono); text-shadow: 0 1px 4px #000; }
+#threats .tbox { border: 2px solid #ff3b52; border-radius: 8px; box-shadow: 0 0 12px rgba(255,59,82,.7); animation: lockpulse .4s ease-in-out infinite alternate; }
+#threats .tarrow { font-size: 30px; line-height: 1; }
 #lockBox { position: fixed; z-index: 3; pointer-events: none; transform: translate(-50%, -50%); border: 2px dashed var(--accent); border-radius: 6px; transition: width .15s, height .15s; }
 #lockBox.locked { border: 2px solid var(--danger); box-shadow: 0 0 14px rgba(255,90,110,.6); animation: lockpulse .6s ease-in-out infinite alternate; }
 #lockBox span { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 6px); font: 600 11px var(--mono); letter-spacing: .1em; color: var(--accent); white-space: nowrap; text-shadow: 0 1px 3px #000; }
@@ -192,10 +210,11 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <span class="owner" id="homeOwner">owner: gilad</span>
   <div class="stat"><span class="k">HEALTH</span><div class="bar"><div class="fill" id="hpFill"></div></div><span id="hpText">100%</span></div>
   <div class="stat"><span class="k">PEOPLE</span><span id="popText">0</span></div>
-  <button id="rebuildHome" class="go" hidden>Rebuild my planet</button>
+  <div class="row"><button id="rebuildHome" class="go" hidden>Rebuild my planet</button><button id="newHome" hidden>Start a new planet</button></div>
+  <div class="group" id="conqBox" hidden><span class="label" id="conqTitle">🏴 Conquered!</span><span class="small" id="conqText"></span><div class="row"><button class="go" id="payRansom">Pay ransom</button></div></div>
   <div class="group"><span class="label">Game</span>
     <div class="row" id="resetAskRow"><button class="danger" id="resetAsk">Reset game</button></div>
-    <div class="group" id="resetConfirm" hidden><span class="small">Start over? Your planet, ship, notes and all other planets go back to the start.</span><div class="row"><button class="danger" id="reset">Yes, reset</button><button id="resetNo">No, keep playing</button></div></div>
+    <div class="group" id="resetConfirm" hidden><span class="small">Start over? Your money, ship, weapons, missions, your planet and everyone's anger at you go back to the start.</span><div class="row"><button class="danger" id="reset">Yes, reset</button><button id="resetNo">No, keep playing</button></div></div>
   </div>
 </section>
 
@@ -336,7 +355,19 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <div class="ph"><span class="label">⚡ God mode · only you</span><button class="x" data-close="god" aria-label="Close god mode">×</button></div>
   <div class="choice" id="godToggles"></div>
   <div class="row"><button id="godMoney">+100,000 credits</button><button id="godUnlock">Unlock all weapons</button></div>
-  <div class="row"><button id="godPirates">Send pirates</button><button id="godHeal">Heal my planet</button><button id="godPrank">Prank me (test)</button></div>
+  <div class="row"><button id="godPirates">Send pirates</button><button id="godHeal">Heal my planet</button><button id="godPrank">Prank me (test)</button><button id="godConquer">Conquer me (test)</button></div>
+</section>
+<section id="p-hail" class="hud panel side" data-panel="hail" hidden>
+  <div class="ph"><span class="label" id="hailName">📡 Ship</span><button class="x" data-close="hail" aria-label="Close">×</button></div>
+  <div class="say" id="hailSay"></div>
+  <div class="hail-opts" id="hailOpts"></div>
+  <div class="row" id="hailMsgRow" hidden><input id="hailMsg" type="text" maxlength="120" placeholder="Write a message…" aria-label="Message"><button id="hailSend">Send</button></div>
+</section>
+<section id="p-missions" class="hud panel side" data-panel="missions" hidden>
+  <div class="ph"><span class="label">📋 Galactic mission board</span><button class="x" data-close="missions" aria-label="Close missions">×</button></div>
+  <span class="small">New missions every day. Finish them for credits.</span>
+  <div id="missionList"></div>
+  <span class="small" id="missionReset"></span>
 </section>
 <section id="p-help" class="hud panel" data-panel="help" hidden>
   <div class="ph"><span class="label">Flight controls</span><button class="x" data-close="help" aria-label="Close flight controls">×</button></div>
@@ -351,7 +382,10 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <kbd>A / D</kbd><span>slide left / right</span>
     <kbd>← → ↑ ↓</kbd><span>turn with keys</span>
     <kbd>Q / E</kbd><span>roll</span>
-    <kbd>Space</kbd><span>lasers</span>
+    <kbd>Space</kbd><span>fly up</span>
+    <kbd>Ctrl / ⌘ / X</kbd><span>fly down</span>
+    <kbd>L</kbd><span>lasers (or hold the mouse button)</span>
+    <kbd>I</kbd><span>talk to the ship you aim at</span>
     <kbd>F</kbd><span>missile (or right click) · flies to a locked target</span>
     <kbd>B</kbd><span>drop bomb</span>
     <kbd>T</kbd><span>send troops</span>
@@ -363,7 +397,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 </section>
 
 <div id="flyHud" class="hud" hidden>
-  <span>SHIP <b id="hudShip">—</b></span><span>HULL <b id="hudHp">100</b>%</span><span>SPEED <b id="hudSpeed">0</b> km/s</span><span>💰 <b id="hudCredits">0</b></span>
+  <span>SHIP <b id="hudShip">—</b></span><span>HULL <span class="hpbar"><i id="hudHpBar"></i></span> <b id="hudHp">100</b>%</span><span>SPEED <b id="hudSpeed">0</b> km/s</span><span>💰 <b id="hudCredits">0</b></span>
   <span id="navHud" hidden>NAV <b id="navName"></b> <b id="navDist"></b><button id="navStop" aria-label="Stop navigation">✕</button></span>
 </div>
 <section id="target" class="hud" hidden>
@@ -374,6 +408,8 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 </section>
 <div id="weapons" class="hud" hidden></div>
 <div id="crosshair" hidden></div>
+<canvas id="minimap" class="hud" width="360" height="360" aria-label="Minimap"></canvas>
+<div id="threats"></div>
 <div id="lockBox" hidden><span id="lockText">LOCKING…</span></div>
 <div id="tip" class="hud" hidden></div>
 <div id="tags"></div>
@@ -383,7 +419,8 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 
 <div id="pad" aria-hidden="true">
   <button data-k="KeyW">GO</button><button data-k="ShiftLeft">BOOST</button>
-  <button data-k="Space">LASER</button><button data-k="KeyF">MISSILE</button>
+  <button data-k="KeyL">LASER</button><button data-k="KeyF">MISSILE</button>
+  <button data-k="Space">UP</button><button data-k="KeyX">DOWN</button>
   <button data-k="KeyB">BOMB</button><button data-k="KeyT">TROOPS</button>
 </div>
 
@@ -397,11 +434,12 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <button data-view="hangar" data-home>🚀 Hangar</button>
   <button data-open="map">🗺 Map</button>
   <button data-open="prank" data-fly>😈 Prank</button>
+  <button data-open="missions">📋 Missions</button>
   <div class="dd"><button class="ddb">💬 Talk ▾</button><div class="ddm" hidden>
     <button data-open="mail">Mailbox</button><button data-open="chat" data-home>Galaxy chat</button>
   </div></div>
   <div class="dd"><button class="ddb" aria-label="Settings">⚙ ▾</button><div class="ddm" hidden>
-    <button data-open="help" data-fly>Flight controls</button><button id="soundBtn">Sound</button><button id="gfxBtn">Graphics</button><button data-open="god" id="godBtn" hidden>⚡ God mode</button>
+    <button data-open="help" data-fly>Flight controls</button><button id="soundBtn">Sound</button><button id="gfxBtn">Graphics</button><button id="godBtn">⚡ God mode</button><button id="resetAll" data-home>↺ Reset game</button>
   </div></div>
   <span id="netPill" hidden>● connecting…</span>
   <span class="sep" data-home></span>
@@ -498,7 +536,7 @@ const PRESETS = {
   random:    { label: "Surprise me" },
 };
 const WEAPONS = {
-  laser:   { label: "Lasers",   keyLabel: "space", cd: .07 },
+  laser:   { label: "Lasers",   keyLabel: "L / click", cd: .07 },
   missile: { label: "Missiles", keyLabel: "F", cd: .45 },
   bomb:    { label: "Bombs",    keyLabel: "B", cd: 1.1 },
   troops:  { label: "Troops",   keyLabel: "T", cd: 2.5 },
@@ -1462,6 +1500,7 @@ class Planet {
     this.prankGroup.clear(); this.prankShown = 0;
     if (!this.alive) return;
     for (const k of livePranks(this.data)) { try { const o = buildPrank(this, k); o.userData.prank = k; this.prankGroup.add(o); this.prankShown++; } catch (e) { console.error("prank", e); } }
+    if (this.data.conqueredBy) this.prankGroup.add(conquerFlag(this, this.data.conqueredBy));
   }
   brush(n, tool, size, rgb) {
     const cosL = Math.cos(size);
@@ -1522,6 +1561,7 @@ class Planet {
     this.vents = []; if (a.smoke) { for (let i = 0; i < 4; i++) this.vents.push(this.randomLand().clone()); this.smokeCol = [new THREE.Color(a.smoke), new THREE.Color(a.smoke).multiplyScalar(.55)]; }
   }
   animateAround(dt, t) {
+    if (this.prankGroup && camera.position.distanceTo(this.group.position) < this.R * 30) for (const o of this.prankGroup.children) if (o.userData.streams) swayStreams(o, t);
     if (this.moon) { const a = t * .12 + this.R; this.moon.position.set(Math.cos(a) * this.R * 3.2, Math.sin(a * .7) * this.R * .5, Math.sin(a) * this.R * 3.2); this.moon.rotation.y += dt * .1; }
     for (const sat of this.sats) { const o = sat.userData.orbit; o.a += dt * o.sp; sat.position.set(Math.cos(o.a) * o.r, 0, Math.sin(o.a) * o.r).applyQuaternion(o.tilt); sat.rotation.y += dt * .5; }
     const fast = clock() < (this.alienWaveUntil || 0);
@@ -1587,7 +1627,11 @@ class Planet {
     emit(hurt * hurt * 70, () => { const s = spot(); fire.spawn(s.at, s.out.multiplyScalar(this.R * rnd(.05, .35)), rnd(.6, 1.6), this.R * rnd(.015, .04), C(0xffb050, 2.4), C(0x601000, .4), .3, .4); });
     if (hurt > .55 && Math.random() < dt * hurt * 1.5) { const s = spot(); for (let i = 0; i < 30; i++) fire.spawn(s.at, s.out.clone().multiplyScalar(this.R * rnd(.4, 1.1)).add(new THREE.Vector3().randomDirection().multiplyScalar(this.R * .15)), rnd(.8, 1.6), this.R * rnd(.02, .05), C(0xffd080, 3), C(0xa02000, .5), .2, .6); if (Math.random() < .5) breakOff(this, s.d, 3, .05); }
   }
-  checkDeath() { if (!net.me && this.alive && (this.data.hp <= 0 || this.data.pop <= 0)) this.explode(); } // online, the server decides
+  checkDeath() { // online, the server decides
+    if (net.me || !this.alive || (this.data.hp > 0 && this.data.pop > 0)) return;
+    if (this.data.hp > 0 && !this.isHome && this.soldiers() > 0 && !this.data.conqueredBy) return setConquered(this, { id: "me", name: state.home.owner }, this.data.maxPop * .3);
+    this.explode();
+  }
   spawnPerson(dir, soldier) {
     const head = new THREE.Vector3().randomDirection().cross(dir).normalize();
     const p = { dir: dir.clone(), head, speed: rnd(.05, .09), phase: Math.random() * 6, state: "walk", soldier, ci: (Math.random() * 1000) | 0, nextShot: clock() + rnd(1, 3), target: null };
@@ -2214,7 +2258,7 @@ function setView(v) {
   if (mode !== "home") return;
   view = v;
   for (const [vv, panel] of Object.entries(VIEWS)) ui[panel] = vv === v;
-  if (v !== "main") ui.mail = ui.chat = ui.map = ui.help = ui.prank = ui.pranks = ui.god = false; // only one menu open at a time
+  if (v !== "main") ui.mail = ui.chat = ui.map = ui.help = ui.prank = ui.pranks = ui.god = ui.hail = ui.missions = false; // only one menu open at a time
   $("renameRow").hidden = true;
   setTool(null); frameCamera(); renderPanels(); saveUi();
 }
@@ -2226,7 +2270,7 @@ function goMain() { // Esc and the Home button: straight back to the normal view
 }
 function setPanel(name, open) { // small panels on top of any view: map, mail, chat, flight controls
   if (open) { // opening a menu closes the one that was open
-    for (const k of ["mail", "chat", "map", "help", "prank", "pranks", "god"]) if (k !== name) ui[k] = false;
+    for (const k of ["mail", "chat", "map", "help", "prank", "pranks", "god", "hail", "missions"]) if (k !== name) ui[k] = false;
     if (mode === "home" && view !== "main") setView("main");
   }
   ui[name] = open;
@@ -2238,8 +2282,8 @@ function renderPanels() {
   document.querySelectorAll("[data-panel]").forEach((el) => {
     const name = el.dataset.panel;
     let show = !!ui[name];
-    if (fly) show = show && ["map", "mail", "help", "prank", "pranks", "god"].includes(name);
-    else show = show && name !== "help" && name !== "prank" && !(view !== "main" && ["mail", "chat", "pranks", "god"].includes(name));
+    if (fly) show = show && ["map", "mail", "help", "prank", "pranks", "god", "hail", "missions"].includes(name);
+    else show = show && !["help", "prank", "hail"].includes(name) && !(view !== "main" && ["mail", "chat", "pranks", "god", "missions"].includes(name));
     el.hidden = !show;
   });
   document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", !fly && view === b.dataset.view));
@@ -2251,7 +2295,7 @@ function renderPanels() {
   $("soundBtn").textContent = ui.muted ? "Sound off" : "Sound on";
   $("gfxBtn").textContent = ui.low ? "Graphics: fast" : "Graphics: best";
   $("soundBtn").classList.toggle("on", !ui.muted);
-  $("godBtn").hidden = !godAllowed();
+  $("godBtn").classList.toggle("on", !!ui.god && !$("p-god").hidden);
   document.querySelectorAll(".dd").forEach((d) => { // a drop-down shows only when it has something in it, and lights up when one of its menus is open
     const items = [...d.querySelectorAll(".ddm > button")];
     d.hidden = items.every((b) => b.hidden);
@@ -2260,6 +2304,7 @@ function renderPanels() {
   if (ui.prank && fly) renderPrankTool();
   if (ui.pranks) renderPranks();
   if (ui.god) renderGod();
+  if (ui.missions) renderMissions();
   updateHint();
 }
 // drop-down menus in the dock
@@ -2303,6 +2348,9 @@ function renderInfo() {
   $("hpFill").style.width = h.hp + "%"; $("hpText").textContent = Math.ceil(h.hp) + "%";
   $("popText").textContent = h.dead ? "nobody · planet destroyed" : fmt(h.pop) + " living here";
   $("rebuildHome").hidden = !h.dead;
+  $("newHome").hidden = !h.dead && !h.conqueredBy;
+  $("conqBox").hidden = !h.conqueredBy;
+  if (h.conqueredBy) { $("conqTitle").textContent = `🏴 Conquered by ${h.conqueredBy.name}!`; $("conqText").textContent = `They take part of your people's work. Pay ${ransomOf(h)} credits to be free, land 10 troops on your own planet to take it back (friends can help), or start a new planet.`; $("payRansom").textContent = `Pay ransom · 💰${ransomOf(h)}`; }
 }
 function renameHome(name) { // one name used by every panel, tag, map and mailbox
   state.home.name = (name || "").trim().slice(0, 20) || "Unnamed";
@@ -2313,6 +2361,15 @@ function renameHome(name) { // one name used by every panel, tag, map and mailbo
 $("editName").addEventListener("click", () => { $("renameRow").hidden = !$("renameRow").hidden; $("renameInput").value = state.home.name; $("renameInput").focus(); });
 $("renameSave").addEventListener("click", () => { renameHome($("renameInput").value); $("renameRow").hidden = true; });
 $("renameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { renameHome(e.target.value); $("renameRow").hidden = true; } });
+function basicHome() { // a plain new planet from scratch
+  const b = defaults().home;
+  return { ...b, decor: b.decor.filter((d) => d.type === "mailbox"), design: { ...designFrom("earth", Math.floor(Math.random() * 1000)), around: {} } };
+}
+$("newHome").addEventListener("click", () => {
+  if (net.me) { const b = basicHome(); net.send({ t: "newPlanet", planet: { design: b.design, decor: b.decor } }); toast("🌱 Making your new planet…"); return; }
+  const b = basicHome(); state.home = { ...b, name: "New " + state.home.name.replace(/^New /, ""), owner: state.home.owner };
+  buildWorld(); spawnNpcs(); renderDesign(); renderInfo(); save(); setView("main"); toast("🌱 Your new planet is ready. Make it yours!");
+});
 $("rebuildHome").addEventListener("click", () => {
   if (net.me) { net.send({ t: "rebuild" }); toast("🏗 Rebuilding your planet…"); return; }
   const h = state.home; h.dead = false; h.hp = 100; h.pop = h.maxPop; h.troops = 0;
@@ -2562,20 +2619,20 @@ function hookInput(inputId, btnId, onSend) {
   $(btnId).addEventListener("click", send);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
 }
-hookInput("mailText", "mailSend", (t) => { const p = mailPlanet || home; if (net.me) { net.send({ t: "mail", id: p.data.id, text: t }); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); return; } p.data.mail.push({ who: state.home.owner, text: t, t: hhmm() }); renderMail(); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); });
+hookInput("mailText", "mailSend", (t) => { const p = mailPlanet || home; if (p !== home) missionEvent("note", p.data.id || p.data.name); if (net.me) { net.send({ t: "mail", id: p.data.id, text: t }); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); return; } p.data.mail.push({ who: state.home.owner, text: t, t: hhmm() }); renderMail(); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); });
 hookInput("chatText", "chatSend", (t) => { if (net.me) return net.send({ t: "chat", text: t }); state.chat.push({ who: state.home.owner, text: t, t: hhmm() }); renderChat(); });
 $("mailHome").addEventListener("click", () => openMail(home));
 
 // ================= pranks =================
 const PRANKS = {
-  sign:     { label: "Prank sign",    cost: 40,  icon: "🪧", info: "your words on their planet" },
-  photo:    { label: "Photo board",   cost: 60,  icon: "📸", info: "a big picture, like your face" },
-  graffiti: { label: "Graffiti",      cost: 50,  icon: "🎨", info: "spray paint on their ground" },
-  tp:       { label: "Toilet paper",  cost: 80,  icon: "🧻", info: "wrap the whole planet" },
-  ducks:    { label: "Rubber ducks",  cost: 70,  icon: "🦆", info: "ducks everywhere" },
-  statue:   { label: "Statue of you", cost: 150, icon: "🗿", info: "a giant golden you" },
+  sign:     { label: "Prank sign",    cost: 15,  icon: "🪧", info: "your words on their planet" },
+  photo:    { label: "Photo board",   cost: 25,  icon: "📸", info: "a big picture, like your face" },
+  graffiti: { label: "Graffiti",      cost: 20,  icon: "🎨", info: "spray paint on their ground" },
+  tp:       { label: "Toilet paper",  cost: 30,  icon: "🧻", info: "wrap the whole planet" },
+  ducks:    { label: "Rubber ducks",  cost: 25,  icon: "🦆", info: "ducks everywhere" },
+  statue:   { label: "Statue of you", cost: 60,  icon: "🗿", info: "a giant golden you" },
 };
-const PRANK_HOURS = { 48: "2 days", 72: "3 days", 96: "4 days" }, HOUR_PRICE = { 48: 1, 72: 1.5, 96: 2 };
+const PRANK_HOURS = { 48: "2 days", 72: "3 days", 96: "4 days" }, HOUR_PRICE = { 48: 1, 72: 1.4, 96: 1.8 };
 const SEENKEY = "tinyplanets.seenPranks";
 const prankDraft = { type: "sign", hours: 48, img: "" };
 const livePranks = (d) => (d.pranks || []).filter((k) => k.until > Date.now());
@@ -2601,7 +2658,43 @@ const PRANK_MATS = {
   tp: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, side: THREE.DoubleSide }),
   duck: new THREE.MeshStandardMaterial({ color: 0xffd23f, roughness: .45 }), beak: new THREE.MeshStandardMaterial({ color: 0xff8a1f, roughness: .5 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: .9, roughness: .28 }),
+  tube: new THREE.MeshStandardMaterial({ color: 0xa8865a, roughness: 1, side: THREE.DoubleSide }),
 };
+const TP_TEX = (() => { // soft quilted paper with tear lines
+  const c = document.createElement("canvas"); c.width = 64; c.height = 256; const g = c.getContext("2d");
+  g.fillStyle = "#fbfaf4"; g.fillRect(0, 0, 64, 256);
+  g.fillStyle = "rgba(170,165,150,.35)"; for (let y = 6; y < 256; y += 12) for (let x = (y / 12) % 2 ? 6 : 12; x < 64; x += 12) { g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill(); }
+  g.fillStyle = "rgba(150,145,130,.55)"; for (let x = 0; x < 64; x += 6) g.fillRect(x, 127, 3, 2);
+  g.fillStyle = "rgba(160,160,150,.25)"; g.fillRect(0, 0, 3, 256); g.fillRect(61, 0, 3, 256);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const TP_MAT = new THREE.MeshStandardMaterial({ map: TP_TEX, roughness: 1, side: THREE.DoubleSide });
+function ribbon(pts, w, sideHint, mat) { // a flat paper strip that follows a line of points
+  const n = pts.length, pos = new Float32Array(n * 6), uv = new Float32Array(n * 4), idx = [], side = new THREE.Vector3(), tan = new THREE.Vector3();
+  let len = 0;
+  for (let i = 0; i < n; i++) {
+    tan.copy(pts[Math.min(n - 1, i + 1)]).sub(pts[Math.max(0, i - 1)]).normalize();
+    if (sideHint) side.copy(sideHint).cross(tan).normalize(); else side.copy(pts[i]).normalize().cross(tan).normalize();
+    if (side.lengthSq() < .5) side.set(1, 0, 0);
+    const a = pts[i].clone().addScaledVector(side, w / 2), b = pts[i].clone().addScaledVector(side, -w / 2);
+    pos.set([a.x, a.y, a.z, b.x, b.y, b.z], i * 6); if (i) len += pts[i].distanceTo(pts[i - 1]);
+    uv.set([0, len / w * .25, 1, len / w * .25], i * 4);
+    if (i < n - 1) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, mat); m.userData.w = w; return m;
+}
+function swayStreams(group, t) { // hanging paper sways gently
+  for (const m of group.userData.streams || []) {
+    const b = m.userData.base, out = m.userData.out, pos = m.geometry.attributes.position, side = new THREE.Vector3(), tan = new THREE.Vector3(), w = m.userData.w, cur = [];
+    for (let i = 0; i < b.length; i++) { const k = i / (b.length - 1); cur.push(b[i].clone().addScaledVector(out, Math.sin(t * 1.4 + m.userData.phase + i * .25) * k * k * w * 2.5).add(new THREE.Vector3(Math.cos(t * 1.1 + m.userData.phase) * k * k * w * 1.5, 0, 0))); }
+    for (let i = 0; i < cur.length; i++) {
+      tan.copy(cur[Math.min(cur.length - 1, i + 1)]).sub(cur[Math.max(0, i - 1)]).normalize(); side.copy(out).cross(tan).normalize();
+      pos.setXYZ(i * 2, cur[i].x + side.x * w / 2, cur[i].y + side.y * w / 2, cur[i].z + side.z * w / 2); pos.setXYZ(i * 2 + 1, cur[i].x - side.x * w / 2, cur[i].y - side.y * w / 2, cur[i].z - side.z * w / 2);
+    }
+    pos.needsUpdate = true;
+  }
+}
 const DUCK = { body: new THREE.SphereGeometry(.03, 14, 10).scale(1, .8, 1.3).translate(0, .024, 0), head: new THREE.SphereGeometry(.018, 12, 10).translate(0, .05, .022), beak: new THREE.ConeGeometry(.008, .018, 8).rotateX(Math.PI / 2).translate(0, .048, .043) };
 function buildPrank(pl, k) {
   const n = V(k.n).normalize(), s = pl.R / 1.6, r = seeded(k.id || "x"), randDir = () => { const z = r() * 2 - 1, a = r() * Math.PI * 2, q = Math.sqrt(1 - z * z); return new THREE.Vector3(q * Math.cos(a), z, q * Math.sin(a)); };
@@ -2611,10 +2704,29 @@ function buildPrank(pl, k) {
     m.position.copy(n).multiplyScalar(pl.radiusAt(n) + .03 * s); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n); m.rotateZ(r() * 6.28); m.scale.setScalar(pl.R * .55); return m;
   }
   const g = new THREE.Group();
-  if (k.type === "tp") { // toilet paper wrapped round and round
-    for (let i = 0; i < 5; i++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .05, 96, 1, true), PRANK_MATS.tp); t.quaternion.setFromUnitVectors(UP, randDir()); t.scale.set(pl.R * (pl.maxK || 1) * 1.06, pl.R, pl.R * (pl.maxK || 1) * 1.06); g.add(t); }
-    for (let i = 0; i < 8; i++) { const d = randDir(), roll = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .05, 16), PRANK_MATS.tp); roll.position.copy(d).multiplyScalar(pl.radiusAt(d) + .02 * s); roll.quaternion.setFromUnitVectors(UP, d); roll.rotateX(Math.PI / 2); roll.scale.setScalar(s * 1.6); g.add(roll); }
-    return g;
+  if (k.type === "tp") { // TP'd like a house: paper thrown over the planet, long strips hanging down and swaying, rolls lying around
+    const w = pl.R * .06, lift = (d) => pl.radiusAt(d) + .015 * s;
+    for (let i = 0; i < 9; i++) { // strips thrown over the top, arching across
+      const a = randDir(); if (a.y < -.2) a.y = -a.y; a.normalize();
+      const axis = new THREE.Vector3().randomDirection().cross(a).normalize(), arc = .9 + r() * 1.2, pts = [];
+      for (let j = 0; j <= 26; j++) { const t = j / 26, d = a.clone().applyAxisAngle(axis, arc * t); pts.push(d.multiplyScalar(lift(d) + Math.sin(Math.PI * t) * pl.R * (.06 + r() * .1))); }
+      g.add(ribbon(pts, w, null, TP_MAT));
+    }
+    const streams = [];
+    for (let i = 0; i < 14; i++) { // strips hanging down from the planet, falling a little
+      const start = randDir(); start.y = -Math.abs(start.y) * .7 - .15; start.normalize();
+      const out = start.clone().setY(0).normalize(), len = pl.R * (.5 + r() * 1.1), base = [], top = start.clone().multiplyScalar(lift(start));
+      for (let j = 0; j <= 18; j++) { const t = j / 18; base.push(top.clone().addScaledVector(out, pl.R * .22 * Math.sin(Math.min(1, t * 2.2) * Math.PI / 2)).add(new THREE.Vector3(0, -len * t * t, 0))); }
+      const m = ribbon(base, w * .9, out, TP_MAT); m.userData.base = base; m.userData.out = out; m.userData.phase = r() * 6; g.add(m); streams.push(m);
+    }
+    for (let i = 0; i < 5; i++) { // rolls lying on the ground
+      const d = randDir(), roll = new THREE.Group();
+      roll.add(new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .1, 24, 1, true), TP_MAT), new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .102, 16, 1, true), PRANK_MATS.tube));
+      const cap = new THREE.Mesh(new THREE.RingGeometry(.018, .05, 24), PRANK_MATS.tp); cap.rotation.x = Math.PI / 2; cap.position.y = .051; roll.add(cap); const cap2 = cap.clone(); cap2.position.y = -.051; roll.add(cap2);
+      roll.rotation.z = Math.PI / 2; const holder = new THREE.Group(); holder.add(roll); roll.position.y = .05;
+      holder.position.copy(d).multiplyScalar(pl.radiusAt(d)); holder.quaternion.setFromUnitVectors(UP, d); holder.rotateY(r() * 6.28); holder.scale.setScalar(s * 2); g.add(holder);
+    }
+    g.userData.streams = streams; return g;
   }
   if (k.type === "ducks") {
     for (let i = 0; i < 26; i++) {
@@ -2659,6 +2771,7 @@ function doPrank() {
   wallet.credits -= cost; saveWallet(); earn(0);
   if (net.me && tp.data.id) net.send({ t: "prank", id: tp.data.id, prank: k });
   else { (tp.data.pranks ||= []).push({ ...k, id: "k" + Math.random().toString(36).slice(2, 9), by: state.home.owner, byMe: true, at: Date.now(), until: Date.now() + k.hours * 3600e3 }); tp.rebuildPranks(); save(); }
+  missionEvent("prank:" + k.type); missionEvent("prankPlanet", tp.data.id || tp.data.name);
   sfx.lock(); toast(`😈 ${PRANKS[k.type].icon} ${PRANKS[k.type].label} on ${esc(tp.data.name)}! It stays ${PRANK_HOURS[k.hours]}.`, "", 2600);
 }
 function renderPranks() {
@@ -2692,6 +2805,146 @@ setInterval(() => { // countdowns tick, and old pranks fade away
   for (const p of planets) if ((p.prankShown || 0) !== livePranks(p.data).length) { p.rebuildPranks(); if (ui.pranks) renderPranks(); }
 }, 1000);
 
+// ================= talking to ships =================
+const LINES = {
+  trader: ["Fresh space cheese! Best prices in the galaxy.", "Busy day, pilot. What do you need?", "Careful out there, pirates were seen near Krell Station."],
+  racer: ["Can't talk, I'm late for a race! 🏁", "Vroom! Try to keep up!"],
+  freighter: ["This is a big ship. Please don't scratch the paint.", "Hauling 40,000 tons of rubber ducks today."],
+  miner: ["Dig dig dig. ⛏ These rocks are full of crystals.", "Got a sandwich? I've been mining for 3 days."],
+  tourist: ["Ooh! Is that a REAL space pilot? Selfie?", "We're lost. Is this the way to the Eiffel tower?"],
+  patrol: ["Space Police. Keep it clean, pilot.", "We're watching you. 👮"],
+  pirate: ["Arr! Your credits or your hull! 🏴‍☠️", "Nice ship. It would look better as OUR ship."],
+  guard: ["Zorg Prime is protected. Behave.", "State your business, earthling."],
+  drift: ["…the giant ship hums a deep, low note…", "BLOOP. (The creature looks at you with a huge eye.)"],
+  orbit: ["Wiggle wiggle. 🎶", "The space squid squirts a little ink at you."],
+};
+const pickLine = (a) => a[(Math.random() * a.length) | 0];
+let hailTarget = null;
+function hailable() {
+  const t = currentTarget(); if (t && (t instanceof Npc || t.remote) && !t.dead && t.group.position.distanceTo(ship.position) < 150) return t;
+  let best = null, bd = 70; for (const n of fighters()) { if (n.dead) continue; const d = n.group.position.distanceTo(ship.position) - (n.info.radius || 0); if (d < bd) { bd = d; best = n; } }
+  return best;
+}
+function openHail() {
+  if (mode !== "fly") return;
+  const t = hailable(); if (!t) return toast("No ship close enough to talk to. Fly near one and aim at it.");
+  hailTarget = t; if (document.pointerLockElement) document.exitPointerLock();
+  setPanel("hail", true); renderHail(); missionEvent("hail"); sfx.lock();
+}
+function say(text) { $("hailSay").textContent = text; }
+function buy(cost, fn) { if (godOn("free")) cost = 0; if (wallet.credits < cost) return say(`(You need ${Math.ceil(cost - wallet.credits)} more credits.)`); wallet.credits -= cost; saveWallet(); earn(0); fn(); }
+const packOf = (n) => { const L = n.opts && n.opts.leader || n; return npcs.filter((x) => x === L || (x.opts && x.opts.leader === L)); };
+const wanted = () => clock() - lastPlayerAttack < 20;
+function hailOptions(t) {
+  if (t.remote) return [
+    ["👋 Wave", () => { net.send({ t: "wave", to: t.pid, kind: "wave" }); say("You waved. They'll see it on their screen!"); }],
+    ["💬 Send a message", () => { $("hailMsgRow").hidden = false; $("hailMsg").focus(); }],
+    ["⚔ Challenge to a duel", () => { net.send({ t: "wave", to: t.pid, kind: "duel" }); say("Challenge sent. Get ready! ⚔"); }],
+  ];
+  const o = [["👋 Say hi", () => say(pickLine(LINES[t.type] || LINES[t.role] || LINES.drift))]], role = t.role, type = t.type;
+  if (role === "trader" && type !== "racer") o.push(
+    ["🔧 Repair my ship · 💰20", () => buy(20, () => { shipHp = 100; say("All fixed. Fly safe! 🔧"); })],
+    ["📦 Buy a mystery crate · 💰40", () => buy(40, () => { const r = Math.random(), win = r < .35 ? 0 : r < .8 ? 70 : 160; if (win) earn(win, "mystery crate"); say(win ? `Lucky you! The crate had ${win} credits inside. 🎉` : "Oops… it was full of rubber ducks. 🦆"); })],
+    ["🗺 Ask for a tip", () => { const c = planets.filter((p) => p !== home && p.alive && !p.data.npc); const p = c[(Math.random() * c.length) | 0]; if (!p) return say("Quiet galaxy today."); setNav(p); say(`Psst… ${p.data.name} has ${fmt(p.data.pop)} people and nobody has pranked them in ages. 😈 I put it on your nav.`); }]);
+  if (type === "miner") o.push(["⛏ Hire them to mine for you · 💰50", () => buy(50, () => { say("Deal! Back in 90 seconds with crystals. ⛏"); setTimeout(() => earn(130, "your miner brought crystals"), 90000); })]);
+  if (type === "tourist") o.push(["📸 Take a selfie together", () => { flashScreen("#ffffff", .5); earn(5, "the tourists tipped you"); missionEvent("selfie"); say("Cheese! 📸 They love it."); }]);
+  if (role === "patrol") o.push(wanted() ? ["💸 Pay your fine · 💰40", () => buy(40, () => { lastPlayerAttack = -99; for (const n of npcs) if (n.role === "patrol") n.hostile = false; say("Fine paid. Don't do it again. 👮"); })] : ["🚔 Hire as wingman (3 min) · 💰60", () => hire(t)]);
+  if (role === "pirate") o.push(
+    ["💰 Pay them to leave you alone · 💰30", () => buy(30, () => { for (const n of packOf(t)) { n.peaceUntil = clock() + 90; n.hostile = false; } say("Arr, fine. 90 seconds, then you're fair game again. 🏴‍☠️"); })],
+    ["😤 Insult them", () => { for (const n of packOf(t)) n.hostile = true; say("\"Your ship looks like a toaster!\" … They are coming for you! ⚔"); }]);
+  if (role === "guard" || type === "racer") o.push(["🤝 Hire as wingman (3 min) · 💰60", () => hire(t)]);
+  if (t.role === "drift" || type === "squid" || type === "crystal") o.push(["🎵 Sing to it", () => { earn(3); say(pickLine(["It sings back. The whole ship shakes. 🎶", "It glows happily. You feel lucky. ✨", "It ignores you. Rude."])); }]);
+  return o;
+}
+function hire(t) { buy(60, () => { t.escortUntil = clock() + 180; t.hostile = false; say("I've got your back for 3 minutes. Let's go! 🤝"); toast(`🤝 ${t.name} is your wingman for 3 minutes`); }); }
+function renderHail() {
+  const t = hailTarget; if (!t) return;
+  $("hailName").textContent = `📡 ${t.remote ? "🧑‍🚀 " + t.name : t.name}`; $("hailMsgRow").hidden = true;
+  say(t.remote ? `You opened a channel to ${t.name}.` : t.hostile ? pickLine(LINES.pirate) : pickLine(LINES[t.type] || LINES[t.role] || LINES.drift));
+  const el = $("hailOpts"); el.innerHTML = "";
+  hailOptions(t).forEach(([label, fn], i) => { const b = document.createElement("button"); b.textContent = label; b.addEventListener("click", fn); el.append(b); });
+}
+$("hailSend").addEventListener("click", () => { const txt = $("hailMsg").value.trim(); if (!txt || !hailTarget || !hailTarget.remote) return; net.send({ t: "wave", to: hailTarget.pid, kind: "msg", text: txt }); $("hailMsg").value = ""; say(`You: ${txt}`); });
+
+// ================= missions =================
+const MISSIONKEY = "tinyplanets.missions";
+const MISSION_TYPES = {
+  tp:      { text: "Toilet-paper {n} planet(s)", n: [1, 2], ev: "prank:tp", reward: 60 },
+  prank:   { text: "Prank {n} different planets", n: [2, 3], ev: "prankPlanet", unique: true, reward: 80 },
+  pirates: { text: "Destroy {n} pirate ships", n: [3, 5], ev: "kill:pirate", reward: 100 },
+  ships:   { text: "Destroy {n} ships of any kind", n: [5, 8], ev: "kill", reward: 90 },
+  visit:   { text: "Visit {n} planets (fly close to them)", n: [3, 5], ev: "visit", unique: true, reward: 50 },
+  notes:   { text: "Leave notes on {n} planets", n: [2, 3], ev: "note", unique: true, reward: 40 },
+  talk:    { text: "Talk to {n} ships (press I)", n: [3, 4], ev: "hail", reward: 30 },
+  big:     { text: "Take down a giant ship", n: [1], ev: "kill:big", reward: 250 },
+  statue:  { text: "Put a statue of you on someone's planet", n: [1], ev: "prank:statue", reward: 80 },
+  selfie:  { text: "Take {n} selfies with tourists", n: [2], ev: "selfie", reward: 30 },
+  ducks:   { text: "Flood a planet with rubber ducks", n: [1], ev: "prank:ducks", reward: 50 },
+};
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+let missions = null;
+function M() {
+  if (missions && missions.day === today()) return missions;
+  missions = load(MISSIONKEY);
+  if (!missions || missions.day !== today()) { // 4 new missions each day
+    const r = seeded(today() + (net.me ? net.me.id : "")), pool = Object.keys(MISSION_TYPES), list = [];
+    while (list.length < 4 && pool.length) { const id = pool.splice(Math.floor(r() * pool.length), 1)[0], mt = MISSION_TYPES[id]; list.push({ id, n: mt.n[Math.floor(r() * mt.n.length)], got: 0, keys: [], claimed: false }); }
+    missions = { day: today(), list }; saveMissions();
+  }
+  return missions;
+}
+function saveMissions() { try { localStorage.setItem(MISSIONKEY, JSON.stringify(missions)); } catch {} }
+function missionEvent(ev, key) {
+  let changed = false;
+  for (const m of M().list) {
+    const mt = MISSION_TYPES[m.id]; if (!mt || mt.ev !== ev || m.got >= m.n) continue;
+    if (mt.unique) { if (!key || m.keys.includes(key)) continue; m.keys.push(key); }
+    m.got++; changed = true;
+    if (m.got >= m.n) { toast(`📋 Mission done: ${mt.text.replace("{n}", m.n)}! Claim ${mt.reward} credits in 📋 Missions.`, "", 4000); sfx.cheer(); }
+  }
+  if (changed) { saveMissions(); if (ui.missions) renderMissions(); }
+}
+function renderMissions() {
+  const el = $("missionList"); if (!el) return; el.innerHTML = "";
+  for (const m of M().list) {
+    const mt = MISSION_TYPES[m.id], done = m.got >= m.n, row = document.createElement("div");
+    row.className = "mission" + (done ? " done" : "");
+    row.innerHTML = `<span><b>${esc(mt.text.replace("{n}", m.n))}</b><br>${Math.min(m.got, m.n)} / ${m.n} · 💰${mt.reward}</span>`;
+    const b = document.createElement("button"); b.textContent = m.claimed ? "✓ Claimed" : done ? "Claim" : "…"; b.disabled = m.claimed || !done; b.className = done && !m.claimed ? "go" : "";
+    b.addEventListener("click", () => { if (m.claimed || m.got < m.n) return; m.claimed = true; saveMissions(); earn(mt.reward, "mission complete"); renderMissions(); });
+    row.append(b); const bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = `<i style="width:${Math.min(100, m.got / m.n * 100)}%"></i>`; row.append(bar); el.append(row);
+  }
+  const mid = new Date(); mid.setHours(24, 0, 0, 0); $("missionReset").textContent = `New missions in ${fmtLeft(mid - Date.now())}`;
+}
+const visited = new Set();
+
+// ================= conquering =================
+const ransomOf = (d) => Math.round(100 + (d.maxPop || 8000) / 80);
+const myId = () => (net.me ? net.me.id : "me");
+function setConquered(p, by, pop) {
+  p.data.conqueredBy = by || null; if (pop != null) p.data.pop = pop;
+  p.people = p.people.filter((x) => !x.soldier); p.data.troops = 0; p.data.freeing = 0; p.syncPeople(true); p.rebuildPranks();
+  if (p.isHome) { renderInfo(); toast(by ? `🏴 ${esc(by.name)} conquered your planet! Open Planet info to pay a ransom or fight back.` : `🕊 ${esc(p.data.name)} is free again!`, "boom", 6000); }
+  else if (by && by.id === myId()) { toast(`🏴 You conquered ${esc(p.data.name)}! Its people now work for you.`, "", 5000); earn(150, "conquest"); }
+  if (ui.map) renderMapCard(); save();
+}
+setInterval(() => { const mine = planets.filter((p) => p.data.conqueredBy && p.data.conqueredBy.id === myId()).length; if (mine) earn(5 * mine); }, 60000); // conquered planets pay you every minute
+$("payRansom").addEventListener("click", () => {
+  const d = home.data; if (!d.conqueredBy) return;
+  const c = godOn("free") ? 0 : ransomOf(d); if (wallet.credits < c) return toast(`The ransom is ${c} credits. You need ${Math.ceil(c - wallet.credits)} more.`);
+  wallet.credits -= c; saveWallet(); earn(0);
+  if (net.me) net.send({ t: "ransom", amount: c }); else setConquered(home, null);
+});
+function conquerFlag(pl, by) { // a big flag with the conqueror's name on top of the planet
+  const c = document.createElement("canvas"); c.width = 256; c.height = 160; const g = c.getContext("2d");
+  g.fillStyle = "#14141c"; g.fillRect(0, 0, 256, 160); g.fillStyle = "#ffb547"; g.font = "700 60px sans-serif"; g.textAlign = "center"; g.fillText("🏴", 128, 70);
+  g.font = "700 26px sans-serif"; g.fillText((by.name || "?").toUpperCase().slice(0, 14), 128, 130);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const fl = new THREE.Group(); fl.add(new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .5, 8).translate(0, .25, 0), mats.metal));
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(.26, .16), new THREE.MeshStandardMaterial({ map: t, side: THREE.DoubleSide, roughness: .8 })); cloth.position.set(.13, .41, 0); fl.add(cloth);
+  fl.userData = { type: "flag", size: 3 }; orientOnPlanet(fl, pl, new THREE.Vector3(.15, 1, .1).normalize()); return fl;
+}
+
 // ================= god mode (only for the game's owner) =================
 ui.godMode ||= {};
 const GOD_TOGGLES = { inv: "Ship can't be hurt", shield: "Planet can't be hurt", oneshot: "One-hit kills", free: "Everything free" };
@@ -2700,11 +2953,18 @@ function godOn(k) { return godAllowed() && !!(ui.godMode && ui.godMode[k]); }
 function renderGod() {
   choiceRow($("godToggles"), GOD_TOGGLES, (k) => !!ui.godMode[k], (k) => { ui.godMode[k] = !ui.godMode[k]; saveUi(); if (k === "shield" && net.me) net.send({ t: "godShield", on: !!ui.godMode.shield }); renderGod(); renderHangar(); renderPrankTool(); });
 }
+$("godBtn").addEventListener("click", () => {
+  if (godAllowed()) return setPanel("god", !ui.god);
+  const key = prompt("God mode is only for the game owner.\nType your god key (the ADMIN_KEY you set in Render):");
+  if (!key) return;
+  try { localStorage.setItem(GODKEY, key.trim()); } catch {}
+  net.send({ t: "godKey", key: key.trim() });
+});
 $("godMoney").addEventListener("click", () => earn(100000, "God mode"));
 $("godUnlock").addEventListener("click", () => { wallet.owned = Object.keys(GUNS); saveWallet(); renderHangar(); toast("⚡ All weapons unlocked. Put them on in Hangar → Weapons."); });
 $("godPirates").addEventListener("click", () => {
   const at = mode === "fly" ? ship.position : home.group.position;
-  for (const n of npcs.filter((x) => x.role === "pirate")) { if (n.dead) n.spawn(); n.group.position.copy(at).add(new THREE.Vector3().randomDirection().multiplyScalar(rnd(30, 45))); n.hostile = true; }
+  for (const n of npcs.filter((x) => x.role === "pirate")) { if (n.dead) n.spawn(); n.group.position.copy(at).add(new THREE.Vector3().randomDirection().multiplyScalar(rnd(30, 45))); n.trail.reset(); n.hostile = true; }
   toast("🏴‍☠️ Pirates incoming! Fly out to fight them.", "boom", 2500);
 });
 $("godHeal").addEventListener("click", () => {
@@ -2712,6 +2972,7 @@ $("godHeal").addEventListener("click", () => {
   if (!home.alive) return $("rebuildHome").click();
   home.data.hp = 100; home.data.pop = home.data.maxPop; home.dmg.fill(0); home.rebuild(); home.syncPeople(true); renderInfo(); save(); toast("⚡ Planet healed");
 });
+$("godConquer").addEventListener("click", () => { if (net.me) net.send({ t: "godConquer" }); else setConquered(home, { id: "bot", name: "Test Bot" }, home.data.pop); });
 $("godPrank").addEventListener("click", () => {
   const types = ["sign", "graffiti", "tp", "ducks", "statue"], type = types[(Math.random() * types.length) | 0], n = new THREE.Vector3().randomDirection();
   const k = { type, n: n.toArray().map(r3), face: n.toArray().map(r3), text: "GOT YOU!", img: "", hours: 48 };
@@ -2916,14 +3177,35 @@ const NPC_TYPES = { // role: trader = flies planet to planet, guard = protects i
   squid:   { role: "orbit", name: "Space squid", hp: 30, speed: 12, cfg: { hull: "squid", wings: "none", engines: 1, extras: [], body: "#9a4fd0", accent: "#c88af0", glow: "#7dffcf", flame: "#7dffcf", finish: "matte", size: 1.4 } },
   racer:   { role: "trader", name: "Space racer", hp: 20, speed: 45, cfg: { hull: "needle", wings: "none", engines: 1, extras: ["spoiler"], body: "#ff3a3a", accent: "#ffffff", glow: "#ffb547", flame: "#ffb547", flameShape: "long", finish: "metal", size: 1.2 } },
   crystal: { role: "drift", name: "Crystal being", hp: 60, speed: 6, cfg: { hull: "crystal", wings: "none", engines: 1, extras: ["glow"], body: "#9df0ff", accent: "#c8a2ff", glow: "#c8a2ff", flame: "#c8a2ff", flameShape: "ball", finish: "chrome", size: 2.2 } },
+  pirateBoss: { role: "pirate", name: "Pirate captain", hp: 90, speed: 34, cfg: { hull: "shark", wings: "bat", engines: 3, extras: ["flag", "spikes", "cannons"], body: "#1a1010", accent: "#b01818", glow: "#ff3030", flame: "#ff5030", finish: "carbon", size: 2.4 } },
+  escort:  { role: "guard", name: "Convoy escort", hp: 35, speed: 30, cfg: { hull: "interceptor", wings: "delta", engines: 2, extras: ["lights"], body: "#8a8f99", accent: "#d8a040", glow: "#ffd080", flame: "#ffb547", finish: "metal", size: 1.1 } },
+  kraken:  { role: "drift", name: "Space kraken", hp: 800, speed: 5, big: true, high: true, cfg: { hull: "squid", wings: "none", engines: 1, extras: [], body: "#6a2a8a", accent: "#c88af0", glow: "#7dffcf", flame: "#7dffcf", finish: "matte", size: 16 } },
+  hive:    { role: "drift", name: "Crystal hive ship", hp: 700, speed: 4, big: true, high: true, cfg: { hull: "crystal", wings: "none", engines: 1, extras: ["glow"], body: "#9df0ff", accent: "#c8a2ff", glow: "#c8a2ff", flame: "#c8a2ff", flameShape: "ball", finish: "chrome", size: 18 } },
   freighter: { role: "trader", name: "Giant freighter", hp: 300, speed: 7, big: true, cfg: { hull: "hauler", wings: "none", engines: 4, extras: ["lights", "turret", "antenna"], body: "#6f7686", accent: "#c97b2a", glow: "#ffb547", flame: "#ffb547", finish: "matte", size: 9 } },
-  mothership: { role: "drift", name: "Alien mothership", hp: 600, speed: 4, big: true, cfg: { hull: "saucer", wings: "ring", engines: 4, extras: ["lights", "glow", "turret"], body: "#4a5a6a", accent: "#9dff6a", glow: "#9dff6a", flame: "#9dff6a", finish: "chrome", size: 22 } },
+  mothership: { role: "drift", name: "Alien mothership", hp: 600, speed: 4, big: true, high: true, cfg: { hull: "saucer", wings: "ring", engines: 4, extras: ["lights", "glow", "turret"], body: "#4a5a6a", accent: "#9dff6a", glow: "#9dff6a", flame: "#9dff6a", finish: "chrome", size: 22 } },
   dreadnought: { role: "guard", name: "Krell dreadnought", hp: 500, speed: 9, big: true, angry: 55, cfg: { hull: "battleship", wings: "wide", engines: 4, extras: ["cannons", "turret", "antenna", "lights"], body: "#2a1a1a", accent: "#a01818", glow: "#ff3030", flame: "#ff5030", finish: "carbon", size: 14 } },
 };
 let lastPlayerAttack = -99; // when you last attacked anyone: the space police remember
 const npcTemplates = {};
 const npcs = [], npcBolts = [];
 let shipHp = 100, lastPlayerHit = -99, playerDead = false;
+class Trail { // a short fading line behind a ship, so you can spot it from far away
+  constructor(color, n = 28) {
+    this.n = n; this.pos = new Float32Array(n * 3); this.col = new Float32Array(n * 3); this.ready = false; this.t = 0; const c = new THREE.Color(color);
+    for (let i = 0; i < n; i++) { const k = Math.pow(1 - i / n, 1.5); this.col.set([c.r * k, c.g * k, c.b * k], i * 3); }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(this.pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(this.col, 3));
+    this.line = new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.line.frustumCulled = false; scene.add(this.line);
+  }
+  update(p, dt, on) {
+    this.line.visible = on; if (!on) { this.ready = false; return; }
+    if (!this.ready) { for (let i = 0; i < this.n; i++) this.pos.set([p.x, p.y, p.z], i * 3); this.ready = true; }
+    if ((this.t += dt) > .08) { this.t = 0; this.pos.copyWithin(3, 0, (this.n - 1) * 3); }
+    this.pos[0] = p.x; this.pos[1] = p.y; this.pos[2] = p.z; this.line.geometry.attributes.position.needsUpdate = true;
+  }
+  reset() { this.ready = false; }
+  dispose() { scene.remove(this.line); this.line.geometry.dispose(); }
+}
 class Npc {
   constructor(type, opts) {
     const T = NPC_TYPES[type];
@@ -2933,6 +3215,7 @@ class Npc {
     this.info = collectParts(this.model, { radius: .25 * T.cfg.size + .15, len: .5 * T.cfg.size });
     this.vel = new THREE.Vector3(); this.hostile = false; this.cool = rnd(1, 2); this.fleeUntil = 0; this.phase = Math.random() * 6;
     this.tag = document.createElement("div"); this.tag.className = "tag npc"; this.tag.hidden = true; $("tags").append(this.tag);
+    this.trail = new Trail(new THREE.Color(T.cfg.flame || T.cfg.glow).multiplyScalar(.85), T.big ? 44 : 26);
     this.spawn();
   }
   get home() { return planets.find((p) => p.data.name === this.opts.planet); }
@@ -2944,6 +3227,8 @@ class Npc {
     this.group.position.copy(c).add(new THREE.Vector3(this.orbitR, rnd(-2, 2), 0).applyAxisAngle(UP, this.orbitA));
     this.hp = this.maxHp; this.hostile = false; this.group.visible = true; this.dead = false;
     this.at = h || null; this.goal = null; this.wait = rnd(0, 3);
+    if (this.opts.leader) this.group.position.copy(this.opts.leader.group.position).add(new THREE.Vector3().randomDirection().multiplyScalar(6 + this.opts.leader.info.radius * 2));
+    if (this.trail) this.trail.reset();
   }
   plan() { // pick the next place to go, like a real pilot would: a trip, a stop, then the next trip
     const live = planets.filter((p) => p.alive), any = (a) => a[(Math.random() * a.length) | 0], pos = this.group.position, r = this.role, h = this.home;
@@ -2965,9 +3250,30 @@ class Npc {
     } else if (r === "pirate") { // pirates lurk near their station and along trade routes
       p = h && Math.random() < .6 ? h : any(live); if (p) { goal = near(p, rnd(4, 9)); wait = rnd(2, 6); }
     } else if (r === "drift") { // giants slowly travel across the galaxy
-      goal = centre.clone().add(new THREE.Vector3(rnd(-1, 1), rnd(-.15, .15), rnd(-1, 1)).normalize().multiplyScalar(rnd(80, 320))); wait = rnd(5, 15);
+      goal = centre.clone().add(new THREE.Vector3(rnd(-1, 1), 0, rnd(-1, 1)).normalize().multiplyScalar(rnd(80, 420))); wait = rnd(5, 15);
+      goal.y = centre.y + (this.T.high ? rnd(70, 190) * (this.phase > 3 ? 1 : -1) : rnd(-25, 25)); // giants cruise high above (or below) the planets
     }
     this.at = p || this.at; this.goal = goal || pos.clone(); this.wait = wait; this.waiting = false;
+  }
+  formation(dt) { // stay in a V behind the pack leader
+    const L = this.opts.leader, slot = this.opts.slot, sp = 2.5 + L.info.radius * 1.6 + this.info.radius * 1.5;
+    const row = Math.ceil((slot + 1) / 2), off = new THREE.Vector3((slot % 2 ? 1 : -1) * row * sp, ((slot % 3) - 1) * sp * .2, -row * sp).applyQuaternion(L.group.quaternion);
+    const to = L.group.position.clone().add(off).sub(this.group.position), d = to.length();
+    const want = L.vel.clone().add(to.multiplyScalar(Math.min(2, d / 4))); if (want.length() > this.speed * 1.5) want.setLength(this.speed * 1.5);
+    this.vel.lerp(want, Math.min(1, dt * 2));
+  }
+  wingman(dt, t) { // a ship you hired: follows you and shoots your enemies
+    const enemy = npcs.filter((n) => n !== this && !n.dead && n.hostile && n.group.position.distanceTo(ship.position) < 90).sort((a, b) => a.group.position.distanceTo(this.group.position) - b.group.position.distanceTo(this.group.position))[0];
+    const fwd = FWD.clone().applyQuaternion(head), right = new THREE.Vector3(1, 0, 0).applyQuaternion(head);
+    if (enemy) {
+      this.steer(enemy.group.position.clone().add(new THREE.Vector3(Math.sin(t + this.phase), .3, Math.cos(t + this.phase)).multiplyScalar(8 + enemy.info.radius * 2)), this.speed * 1.3, dt, 2.5);
+      if ((this.cool -= dt) <= 0 && enemy.group.position.distanceTo(this.group.position) < 60) {
+        this.cool = .7; const a = this.group.position.clone(), b = enemy.group.position.clone();
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: new THREE.Color(.4, 2.5, 3), transparent: true }));
+        scene.add(line); addFx(.12, (k) => (line.material.opacity = 1 - k), () => { scene.remove(line); line.geometry.dispose(); });
+        enemy.hp -= 6; spark(b, .4, C(0x6fe3ff, 2)); sfx.enemyLaser(a); if (enemy.hp <= 0) enemy.destroy();
+      }
+    } else this.steer(ship.position.clone().addScaledVector(fwd, -6 - this.info.radius * 3).addScaledVector(right, (this.phase > 3 ? 1 : -1) * 5), Math.min(this.speed * 1.5, 12 + vel.length() * 1.2), dt, 3);
   }
   cruise(dt) { // speed up, travel straight, steer around planets, slow down and stop at the goal
     const pos = this.group.position;
@@ -2988,7 +3294,7 @@ class Npc {
     return d;
   }
   update(dt, t) {
-    if (this.dead) { if ((this.respawnAt -= dt) <= 0) this.spawn(); return; }
+    if (this.dead) { this.trail.update(this.group.position, dt, false); if ((this.respawnAt -= dt) <= 0) this.spawn(); return; }
     const pos = this.group.position, toPlayer = mode === "fly" && !playerDead ? ship.position.distanceTo(pos) : Infinity;
     const h = this.home, peaceful = this.role === "trader" || this.role === "orbit";
     // decide who to fight
@@ -2996,7 +3302,15 @@ class Npc {
     if (this.role === "guard" && h && ((clock() - (h.playerHitAt || -99) < 25 && toPlayer < 70) || toPlayer < (this.T.angry || 0))) this.hostile = true;
     if (this.role === "patrol" && clock() - lastPlayerAttack < 20 && toPlayer < 90) this.hostile = true;
     if (toPlayer > 130 + this.info.radius * 3) this.hostile = false;
-    if (peaceful && clock() < this.fleeUntil) { // run away from you
+    const L = this.opts.leader && !this.opts.leader.dead ? this.opts.leader : null;
+    if (L) { // a pack fights together
+      if (L.hostile || (L.lastHit && clock() - L.lastHit < 25)) this.hostile = true;
+      if (this.hostile && L.role === "pirate") L.hostile = true;
+    }
+    if (clock() < (this.peaceUntil || 0)) this.hostile = false; // you paid them off
+    const hired = mode === "fly" && clock() < (this.escortUntil || 0);
+    if (hired) { this.hostile = false; this.wingman(dt, t); }
+    else if (peaceful && clock() < this.fleeUntil) { // run away from you
       this.steer(pos.clone().add(pos.clone().sub(ship.position).setLength(50)), this.speed * (this.T.big ? 1.6 : 2.6), dt);
     } else if (this.hostile) { // chase, keep a little distance, shoot
       const keep = 5 + this.info.radius * 2.5;
@@ -3006,7 +3320,7 @@ class Npc {
       if (d < keep) this.vel.multiplyScalar(1 - dt * 2);
       this.cool -= dt;
       if (this.cool <= 0 && toPlayer < 70 + this.info.radius * 2) { this.cool = this.T.big ? rnd(.25, .5) : rnd(.5, 1.1); this.shoot(); }
-    } else this.cruise(dt);
+    } else if (L) this.formation(dt); else this.cruise(dt);
     pos.addScaledVector(this.vel, dt);
     for (const p of planets) { if (!p.alive) continue; const d = pos.clone().sub(p.group.position), m = p.R * 1.5 + this.info.radius; if (d.length() < m) pos.copy(p.group.position).add(d.setLength(m)); }
     if (this.vel.lengthSq() > .25) { // face where it flies, and lean into turns
@@ -3016,7 +3330,10 @@ class Npc {
       _q.multiply(_q2.setFromAxisAngle(FWD, this.bank));
       this.group.quaternion.slerp(_q, Math.min(1, dt * (this.T.big ? .8 : 3)));
     }
-    const moving = this.vel.length() > (this.T.big ? .5 : 2);
+    const moving = this.vel.length() > (this.T.big ? .5 : 2), camD = camera.position.distanceTo(pos), seen = camD < (this.T.big ? 3500 : 900);
+    this.group.visible = seen; // far-away small ships are skipped so the game stays smooth
+    this.trail.update(pos.clone().addScaledVector(FWD.clone().applyQuaternion(this.group.quaternion), -this.info.len * .55), dt, seen && moving);
+    if (!seen) return;
     for (const f of this.info.flames) f.visible = moving; setFlames(this.info, .7 + this.vel.length() / 30 + Math.random() * .3, false);
     animateShipParts(this.info, t + this.phase);
   }
@@ -3030,12 +3347,13 @@ class Npc {
     const dir = lead.sub(from).normalize(), col = new THREE.Color(NPC_TYPES[this.type].cfg.glow).multiplyScalar(3);
     const m = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .7, 6), new THREE.MeshBasicMaterial({ color: col }));
     m.position.copy(from); m.quaternion.setFromUnitVectors(UP, dir); scene.add(m);
-    npcBolts.push({ obj: m, v: dir.multiplyScalar(120), life: 2 });
+    npcBolts.push({ obj: m, v: dir.multiplyScalar(120), life: 2, by: this });
     sfx.enemyLaser(from);
   }
   damage(amount, by) {
     if (this.dead) return;
-    this.hp -= amount; this.hostile = !(this.role === "trader" || this.role === "orbit"); lastHitNpc = this; lastHitAt = clock();
+    if (clock() < (this.escortUntil || 0)) this.escortUntil = 0; // shoot your wingman and they quit
+    this.hp -= amount; this.hostile = !(this.role === "trader" || this.role === "orbit"); lastHitNpc = this; lastHitAt = clock(); this.lastHit = clock();
     if (this.role !== "pirate") lastPlayerAttack = clock();
     if (!this.hostile) this.fleeUntil = clock() + 8;
     const h = this.home; if (h) h.playerHitAt = clock(); // the whole guard squad comes for you
@@ -3050,15 +3368,21 @@ class Npc {
     const v = new THREE.Vector3();
     for (let i = 0; i < 14; i++) chunks.spawn(this.group.position, v.randomDirection().multiplyScalar(rnd(2, 7)).clone(), rnd(.03, .08), new THREE.Color(NPC_TYPES[this.type].cfg.body), rnd(1.5, 3));
     earn(this.T.big ? 250 : 30, `${this.name} destroyed`);
+    missionEvent("kill"); if (this.role === "pirate") missionEvent("kill:pirate"); if (this.T.big) missionEvent("kill:big");
   }
 }
 function spawnNpcs() {
-  for (const n of npcs) { scene.remove(n.group); n.tag.remove(); }
+  for (const n of npcs) { scene.remove(n.group); n.tag.remove(); n.trail.dispose(); }
   npcs.length = 0;
   const add = (type, n, opts = {}) => { for (let i = 0; i < n; i++) npcs.push(new Npc(type, { ...opts })); };
-  add("trader", 6); add("guard", 4, { planet: "Zorg Prime" }); add("pirate", 4, { planet: "Krell Station" });
-  add("miner", 3); add("tourist", 4); add("police", 3); add("squid", 3); add("racer", 2); add("crystal", 2);
-  add("freighter", 2); add("mothership", 1); add("dreadnought", 1, { planet: "Krell Station" });
+  const pack = (lead, follow, count, opts = {}) => { const L = new Npc(lead, { ...opts }); npcs.push(L); for (let i = 0; i < count; i++) npcs.push(new Npc(follow, { ...opts, leader: L, slot: i })); };
+  add("trader", 6); add("guard", 4, { planet: "Zorg Prime" });
+  for (let i = 0; i < 3; i++) pack("pirateBoss", "pirate", 3, { planet: "Krell Station" }); // pirate gangs
+  add("miner", 3); add("tourist", 4); add("squid", 3); add("racer", 3); add("crystal", 2);
+  for (let i = 0; i < 2; i++) pack("police", "police", 2); // police squads
+  for (let i = 0; i < 2; i++) pack("freighter", "escort", 3); // freighter convoys with escorts
+  add("mothership", 3); add("kraken", 1); add("hive", 1);
+  pack("dreadnought", "pirate", 2, { planet: "Krell Station" });
 }
 function npcStep(dt, t) {
   for (const n of npcs) n.update(dt, t);
@@ -3066,7 +3390,7 @@ function npcStep(dt, t) {
     const b = npcBolts[i]; b.life -= dt;
     const p0 = b.obj.position.clone(); b.obj.position.addScaledVector(b.v, dt);
     let gone = b.life <= 0;
-    if (!gone && mode === "fly" && !playerDead && !rolling() && hitSphere(p0, b.obj.position, ship.position, ship.userData.radius * 1.2)) { hurtPlayer(6); spark(b.obj.position, .5, RED); gone = true; }
+    if (!gone && mode === "fly" && !playerDead && !rolling() && hitSphere(p0, b.obj.position, ship.position, ship.userData.radius * 1.2)) { hurtPlayer(6, b.by || b.from); spark(b.obj.position, .5, RED); gone = true; }
     if (!gone) for (const p of planets) if (p.alive && hitSphere(p0, b.obj.position, p.group.position, p.R)) { gone = true; break; }
     if (gone) { scene.remove(b.obj); b.obj.geometry.dispose(); npcBolts.splice(i, 1); }
   }
@@ -3084,7 +3408,9 @@ function junkStep(dt) { // tomatoes, shoes and rocks flying at your ship
     if (gone) { scene.remove(j.obj); junk.splice(i, 1); }
   }
 }
-function hurtPlayer(amount) {
+const attackers = new Map(); // who shot you lately -> until when we keep showing them
+function hurtPlayer(amount, by) {
+  if (by && by.group) attackers.set(by, clock() + 6);
   if (godOn("inv")) return;
   shipHp = Math.max(0, shipHp - amount); lastPlayerHit = clock(); shake = Math.max(shake, .04);
   flashScreen("#ff3040", .18); sfx.hit();
@@ -3156,6 +3482,7 @@ class RemoteShip {
     this.info = { radius: .35, flames: [], lights: [], muzzles: [] }; this.cfgKey = "";
     this.tp = new THREE.Vector3(); this.tq = new THREE.Quaternion(); this.seen = clock();
     this.tag = document.createElement("div"); this.tag.className = "tag npc"; this.tag.hidden = true; $("tags").append(this.tag);
+    this.trail = new Trail(new THREE.Color(.5, 1.6, .7), 30);
   }
   setCfg(cfg) { if (!cfg) return; const k = JSON.stringify(cfg); if (k === this.cfgKey) return; this.cfgKey = k; this.info = makeShipModel(cfg, this.model); }
   setState(s) {
@@ -3168,10 +3495,11 @@ class RemoteShip {
     this.group.position.lerp(this.tp, Math.min(1, dt * 10)); this.group.quaternion.slerp(this.tq, Math.min(1, dt * 10));
     const moving = before.distanceTo(this.group.position) / Math.max(dt, 1e-3) > 1.5;
     for (const f of this.info.flames) f.visible = moving;
+    this.trail.update(this.group.position, dt, moving);
     animateShipParts(this.info, t);
   }
   damage(amount) { net.send({ t: "pvp", target: this.pid, dmg: amount }); spark(this.group.position, .5); lastHitNpc = this; lastHitAt = clock(); }
-  remove() { scene.remove(this.group); this.tag.remove(); remotes.delete(this.pid); }
+  remove() { scene.remove(this.group); this.tag.remove(); this.trail.dispose(); remotes.delete(this.pid); }
 }
 const fighters = () => (remotes.size ? npcs.concat([...remotes.values()]) : npcs);
 function remoteStep(dt, t) { for (const r of [...remotes.values()]) { if (clock() - r.seen > 6) r.remove(); else r.update(dt, t); } }
@@ -3222,14 +3550,19 @@ function setupNet() {
   });
   net.on("shipCfg", (m) => { (net.players[m.pid] ||= { id: m.pid }).ship = m.ship; remotes.get(m.pid)?.setCfg(m.ship); });
   net.on("left", (m) => remotes.get(m.pid)?.remove());
-  net.on("hurt", (m) => { if (mode !== "fly") return; hurtPlayer(m.dmg); if (shipHp <= 0) toast(`💥 ${esc(m.by)} destroyed your ship!`, "boom", 3000); });
+  net.on("hurt", (m) => { if (mode !== "fly") return; hurtPlayer(m.dmg, [...remotes.values()].find((r) => r.name === m.by)); if (shipHp <= 0) toast(`💥 ${esc(m.by)} destroyed your ship!`, "boom", 3000); });
   net.on("shot", (m) => remoteShot(m));
+  net.on("godNo", (m) => toast(m.why === "nokey" ? "⚡ God mode is off on this server. In Render → Environment, add ADMIN_KEY with a secret word, then try again." : "⚡ Wrong god key.", "boom", 6000));
   net.on("god", () => { net.god = true; renderPanels(); renderGod(); toast("⚡ God mode is yours. Find it under ⚙."); if (ui.godMode.shield) net.send({ t: "godShield", on: true }); });
   net.on("prank", (m) => {
     const p = planetById(m.id); if (!p) return; (p.data.pranks ||= []).push(m.prank); p.rebuildPranks();
     if (p.isHome) { toast(`😱 ${esc(m.prank.by)} put a ${PRANKS[m.prank.type].label.toLowerCase()} on your planet!`, "boom", 4000); markPranksSeen(); }
     if (ui.pranks) renderPranks();
   });
+  net.on("conquer", (m) => { const p = planetById(m.id); if (p) setConquered(p, m.by, m.pop); });
+  net.on("paid", (m) => earn(m.amount, `${m.from} paid you a ransom`));
+  net.on("newHome", () => location.reload());
+  net.on("wave", (m) => toast(m.kind === "duel" ? `⚔ ${esc(m.from)} challenges you to a duel!` : m.kind === "msg" ? `💬 ${esc(m.from)}: ${esc(m.text)}` : `👋 ${esc(m.from)} waves at you!`, m.kind === "duel" ? "boom" : "", 5000));
   net.on("unprank", (m) => { const p = planetById(m.id); if (!p) return; p.data.pranks = (p.data.pranks || []).filter((k) => k.id !== m.pid); p.rebuildPranks(); if (ui.pranks) renderPranks(); });
   wakeServer().then(() => net.connect());
 }
@@ -3328,6 +3661,68 @@ function spaceDust(dt, spd) {
   }
 }
 const TRAIL0 = new THREE.Color(.55, .65, .85), TRAIL1 = new THREE.Color(.1, .12, .2);
+// ---- galaxies, minimap and danger arrows
+const GALAXIES = [ // the main crowded galaxy, and far ones for explorers
+  { name: "Main Galaxy", c: [0, 0, 0], r: 1100, color: "rgba(111,227,255,.55)" },
+  { name: "Nebula Reach", c: [3200, 0, 900], r: 700, color: "rgba(200,162,255,.55)" },
+  { name: "The Void Rim", c: [-2400, 0, -3000], r: 800, color: "rgba(255,181,71,.5)" },
+];
+const mm = $("minimap"), mmg = mm.getContext("2d");
+function drawMinimap() {
+  const show = mode === "fly" || (mode === "home" && view === "main"); mm.hidden = !show || document.body.classList.contains("joining"); if (mm.hidden) return;
+  const W = mm.width, Rr = W / 2, fly = mode === "fly", range = fly ? 260 : 380, k = Rr / range, c = fly ? ship.position : home.group.position;
+  const fwd = FWD.clone().applyQuaternion(head), right = new THREE.Vector3(1, 0, 0).applyQuaternion(head), rel = new THREE.Vector3();
+  const toMap = (p) => { rel.copy(p).sub(c); return fly ? [Rr - rel.dot(right) * k, Rr - rel.dot(fwd) * k] : [Rr + rel.x * k, Rr + rel.z * k]; };
+  mmg.clearRect(0, 0, W, W); mmg.save(); mmg.beginPath(); mmg.arc(Rr, Rr, Rr - 1, 0, 7); mmg.clip();
+  mmg.strokeStyle = "rgba(140,170,255,.14)"; mmg.lineWidth = 1; for (const f of [.33, .66]) { mmg.beginPath(); mmg.arc(Rr, Rr, Rr * f, 0, 7); mmg.stroke(); }
+  mmg.font = "600 18px ui-monospace, monospace"; mmg.textAlign = "center";
+  for (const g of GALAXIES) { // galaxy borders
+    const gc = V(g.c).sub(WORLD_OFFSET), [x, y] = toMap(gc), d = c.distanceTo(gc);
+    if (Math.abs(d - g.r) > range * 1.5 && d > g.r) continue;
+    mmg.setLineDash([10, 8]); mmg.strokeStyle = g.color; mmg.lineWidth = 3; mmg.beginPath(); mmg.arc(x, y, g.r * k, 0, 7); mmg.stroke(); mmg.setLineDash([]);
+    if (d > g.r - range) { const a = Math.atan2(Rr - y, Rr - x), lx = x + Math.cos(a) * g.r * k, ly = y + Math.sin(a) * g.r * k; mmg.fillStyle = g.color; mmg.fillText(g.name, Math.max(40, Math.min(W - 40, lx)), Math.max(24, Math.min(W - 10, ly))); }
+  }
+  for (const p of planets) {
+    const [x, y] = toMap(p.group.position); if (Math.hypot(x - Rr, y - Rr) > Rr + 20) continue;
+    mmg.fillStyle = p.alive ? p.data.design.sea : "#552230"; mmg.beginPath(); mmg.arc(x, y, Math.max(4, p.R * k * 2.2), 0, 7); mmg.fill();
+    if (p === home || p === nav || p.data.conqueredBy) { mmg.strokeStyle = p === home ? "#7dff9b" : p === nav ? "#6fe3ff" : "#ffb547"; mmg.lineWidth = 3; mmg.stroke(); }
+  }
+  const pulse = .6 + .4 * Math.sin(clock() * 10);
+  for (const n of fighters()) {
+    if (n.dead) continue; let [x, y] = toMap(n.group.position); const out = Math.hypot(x - Rr, y - Rr) > Rr - 8, threat = attackers.has(n);
+    if (out && !threat) continue;
+    if (out) { const a = Math.atan2(y - Rr, x - Rr); x = Rr + Math.cos(a) * (Rr - 10); y = Rr + Math.sin(a) * (Rr - 10); }
+    mmg.fillStyle = threat ? `rgba(255,59,82,${pulse})` : n.remote ? "#7dff9b" : clock() < (n.escortUntil || 0) ? "#7dff9b" : n.hostile ? "#ff5a6e" : n.role === "patrol" ? "#4fa8ff" : n.T && n.T.big ? "#ffb547" : "#c9d2ea";
+    const r = threat ? 8 : n.T && n.T.big ? 7 : n.remote ? 6 : 4;
+    if (n.T && n.T.big) mmg.fillRect(x - r, y - r, r * 2, r * 2); else { mmg.beginPath(); mmg.arc(x, y, r, 0, 7); mmg.fill(); }
+    if (threat) { mmg.strokeStyle = "#ff3b52"; mmg.lineWidth = 2; mmg.beginPath(); mmg.arc(x, y, 13 + pulse * 5, 0, 7); mmg.stroke(); }
+  }
+  // you
+  let [sx, sy] = fly ? [Rr, Rr] : toMap(ship.position);
+  mmg.fillStyle = "#6fe3ff"; mmg.beginPath(); mmg.moveTo(sx, sy - 11); mmg.lineTo(sx + 8, sy + 8); mmg.lineTo(sx, sy + 4); mmg.lineTo(sx - 8, sy + 8); mmg.closePath(); mmg.fill();
+  mmg.restore();
+  const inG = GALAXIES.find((g) => c.distanceTo(V(g.c).sub(WORLD_OFFSET)) < g.r);
+  mmg.fillStyle = "rgba(230,235,255,.75)"; mmg.font = "600 17px ui-monospace, monospace"; mmg.textAlign = "center"; mmg.fillText(inG ? inG.name : "Deep space", Rr, W - 22);
+}
+const threatEls = [];
+function updateThreats() { // red boxes on people shooting at you, and arrows when they are off screen
+  let i = 0; const v = new THREE.Vector3();
+  if (mode === "fly") for (const [src, until] of attackers) {
+    if (until < clock() || src.dead || (src.alive === false)) { attackers.delete(src); continue; }
+    const el = threatEls[i] || (threatEls[i] = $("threats").appendChild(document.createElement("div"))); i++;
+    v.copy(src.group.position).project(camera);
+    const behind = v.z > 1, on = !behind && Math.abs(v.x) < .95 && Math.abs(v.y) < .92, dist = Math.round(src.group.position.distanceTo(ship.position) * 1000);
+    el.hidden = false;
+    if (on) { const sz = Math.max(34, Math.min(140, ((src.info && src.info.radius) || src.R || 1) * 900 / Math.max(1, src.group.position.distanceTo(camera.position)))); el.className = "tbox"; el.style.width = el.style.height = sz + "px"; el.style.left = (v.x + 1) / 2 * innerWidth + "px"; el.style.top = (1 - v.y) / 2 * innerHeight + "px"; el.textContent = ""; el.style.transform = "translate(-50%, -50%)"; }
+    else {
+      let x = v.x, y = v.y; if (behind) { x = -x; y = -y; } const a = Math.atan2(y, x), rr = Math.min(innerWidth, innerHeight) * .42;
+      el.className = "tarrow"; el.style.width = el.style.height = ""; el.style.left = innerWidth / 2 + Math.cos(a) * rr + "px"; el.style.top = innerHeight / 2 - Math.sin(a) * rr + "px";
+      el.style.transform = `translate(-50%, -50%) rotate(${-a}rad)`; el.textContent = "➤";
+      el.title = `${src.name || src.data?.name} · ${fmt(dist)} km`;
+    }
+  }
+  for (; i < threatEls.length; i++) threatEls[i].hidden = true;
+}
 function updateLock(dt, fwd) { // weapons lock onto the enemy you are fighting
   let cand = aimNpc && !aimNpc.dead ? aimNpc : null;
   if (!cand) { let best = Math.cos(.45); for (const n of fighters()) { if (n.dead || !(n.hostile || n === lastHitNpc)) continue; const to = n.group.position.clone().sub(ship.position), d = to.length(); if (d > 150) continue; const c = to.normalize().dot(fwd); if (c > best) { best = c; cand = n; } } }
@@ -3430,7 +3825,7 @@ addEventListener("keydown", (e) => {
   if (mode === "home" && (e.key === "+" || e.key === "=")) zoom(.8);
   if (mode === "home" && (e.key === "-" || e.key === "_")) zoom(1.25);
   if (mode !== "fly") return;
-  if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+  if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ControlLeft", "ControlRight"].includes(e.code)) e.preventDefault();
   if (e.code.startsWith("Digit")) { const w = Object.keys(WEAPONS)[+e.code.slice(5) - 1]; if (w) { weapon = w; renderWeapons(); } }
   if (!e.repeat) {
     if (e.code === "KeyF") fireWeapon("missile");
@@ -3438,12 +3833,13 @@ addEventListener("keydown", (e) => {
     if (e.code === "KeyT") fireWeapon("troops");
     if (e.code === "KeyN") fireWeapon("atom");
     if (e.code === "KeyP") doPrank();
+    if (e.code === "KeyI") openHail();
     if (e.code === "KeyC") barrelRoll();
     if (e.code === "KeyM") { const t = currentTarget(); if (t) openMail(t); }
   }
   keys.add(e.code);
 });
-addEventListener("keyup", (e) => keys.delete(e.code));
+addEventListener("keyup", (e) => { keys.delete(e.code); if (e.key === "Meta") keys.clear(); }); // on a Mac other keys get stuck while Cmd is held
 addEventListener("blur", () => { keys.clear(); firing = false; });
 document.querySelectorAll("#pad button").forEach((b) => {
   b.addEventListener("pointerdown", (e) => {
@@ -3562,7 +3958,11 @@ function impact(b, planet, point) {
     planet.hitAt(n, "bomb");
   } else if (b.kind === "troops") {
     spark(surf, .6, C(0x7dff9b, 2)); sfx.troops();
-    if (planet.alive) { planet.addSoldiers(5, n); planet.data.troops = planet.soldiers(); if (net.me) net.send({ t: "troops", id: planet.data.id, n: n.toArray().map(r3), count: 5 }); planet.lastHit = clock(); toast(`🪖 5 troops landed on ${esc(planet.data.name)}`); save(); }
+    if (planet.alive && planet.data.conqueredBy && planet.data.conqueredBy.id !== myId()) { // troops free a conquered planet
+      if (net.me) net.send({ t: "troops", id: planet.data.id, n: n.toArray().map(r3), count: 5 });
+      else { planet.data.freeing = (planet.data.freeing || 0) + 5; if (planet.data.freeing >= 10) setConquered(planet, null); else toast(`🪖 Freeing ${esc(planet.data.name)}: ${planet.data.freeing}/10 troops`); }
+    } else if (planet.alive && planet.isHome) toast("Those are your own people! Send troops to other planets.");
+    else if (planet.alive) { planet.addSoldiers(5, n); planet.data.troops = planet.soldiers(); if (net.me) net.send({ t: "troops", id: planet.data.id, n: n.toArray().map(r3), count: 5 }); planet.lastHit = clock(); toast(`🪖 5 troops landed on ${esc(planet.data.name)}`); save(); }
   }
 }
 function nuke(planet, at) { // one hit and the planet is gone
@@ -3633,7 +4033,7 @@ function flyStep(dt) {
   const k = (c) => keys.has(c);
   if (playerDead) return;
   if (clock() - lastPlayerHit > 4) shipHp = Math.min(100, shipHp + 5 * dt); // shields recharge
-  $("hudHp").textContent = Math.ceil(shipHp); $("hudHp").style.color = shipHp < 35 ? "var(--danger)" : "";
+  $("hudHp").textContent = Math.ceil(shipHp); $("hudHp").style.color = shipHp < 35 ? "var(--danger)" : ""; $("hudHpBar").style.width = shipHp + "%"; $("hudHpBar").style.filter = shipHp < 35 && Math.sin(clock() * 12) > 0 ? "brightness(1.8)" : "";
   const boost = k("ShiftLeft") || k("ShiftRight"), size = state.ship.size, thrust = k("KeyW");
   // turning: the mouse turns the ship exactly as far as you move it, eased over a few frames so it feels smooth
   const SENS = ui.sens || .0026;
@@ -3663,11 +4063,16 @@ function flyStep(dt) {
   const max = boost ? 150 : 28;
   vel.addScaledVector(fwd, throttle * (boost ? 300 : 47) * dt);
   const strafe = (k("KeyD") ? 1 : 0) - (k("KeyA") ? 1 : 0);
+  const lift = (k("Space") ? 1 : 0) - (k("ControlLeft") || k("ControlRight") || k("MetaLeft") || k("MetaRight") || k("KeyX") ? 1 : 0);
+  if (lift) { // climb or dive, with small thruster flames
+    vel.addScaledVector(headUp, lift * 24 * dt);
+    if (Math.random() < .8) fire.spawn(ship.position.clone().addScaledVector(headUp, -lift * ship.userData.radius * .5), vel.clone().addScaledVector(headUp, -lift * 7).add(new THREE.Vector3().randomDirection().multiplyScalar(.8)), .2, .035 * size, C(state.ship.flame, 1.6), DARK);
+  }
   if (strafe) vel.addScaledVector(right, strafe * 22 * dt); // A / D slide sideways
   if (k("KeyS")) { const f = vel.dot(fwd); if (f > .5) vel.addScaledVector(fwd, -Math.min(f, 45 * dt)); else vel.addScaledVector(fwd, -16 * dt); } // brake, then reverse
   // space has no air: you keep drifting. Flight assist slowly lines your drift up with where you point.
   const fv = vel.dot(fwd), side = vel.clone().addScaledVector(fwd, -fv);
-  if (!roll && !strafe) vel.addScaledVector(side, -Math.min(1, dt * 1.1));
+  if (!roll && !strafe && !lift) vel.addScaledVector(side, -Math.min(1, dt * 1.1));
   if (fv < -12) vel.addScaledVector(fwd, -12 - fv); // reverse is slow
   if (!thrust && !k("KeyS")) vel.multiplyScalar(Math.exp(-.18 * dt)); // coasting: slows down only a little
   if (vel.length() > max) vel.lerp(vel.clone().setLength(max), Math.min(1, dt * 1.5));
@@ -3691,7 +4096,7 @@ function flyStep(dt) {
   spaceDust(dt, spd);
   updateAim(); // after the camera moves, so shots go exactly under the cursor
   updateLock(dt, fwd);
-  if ((firing && weapon === "laser") || k("Space")) fireWeapon("laser");
+  if ((firing && weapon === "laser") || k("KeyL")) fireWeapon("laser");
   if (firing && (weapon === "missile" || weapon === "bomb")) fireWeapon(weapon);
   const moving = throttle > .05 || spd > 2;
   for (const f of ship.userData.flames) f.visible = moving; setFlames(ship.userData, .5 + throttle * (boost ? 2.8 : 1.6) + Math.random() * .3, boost && thrust);
@@ -3713,11 +4118,11 @@ function flyStep(dt) {
   if (tgt && tgt.remote) {
     $("tName").textContent = tgt.name; $("tOwner").textContent = "another player";
     $("tHp").style.width = Math.max(0, tgt.hp) + "%"; $("tHpText").textContent = Math.ceil(Math.max(0, tgt.hp)) + "%";
-    $("tPop").textContent = "player ship"; $("tTroops").textContent = "";
+    $("tPop").textContent = "player ship"; $("tTroops").textContent = "· press I to talk";
   } else if (tgt && tgt instanceof Npc) {
     $("tName").textContent = tgt.name; $("tOwner").textContent = tgt.hostile ? "attacking you!" : tgt.type === "trader" ? "peaceful" : "on patrol";
     $("tHp").style.width = Math.max(0, tgt.hp / tgt.maxHp * 100) + "%"; $("tHpText").textContent = Math.ceil(Math.max(0, tgt.hp / tgt.maxHp * 100)) + "%";
-    $("tPop").textContent = "alien ship"; $("tTroops").textContent = "";
+    $("tPop").textContent = tgt.T.big ? "giant ship" : "ship"; $("tTroops").textContent = "· press I to talk";
   } else if (tgt) {
     const d = tgt.data;
     $("tName").textContent = d.name; $("tOwner").textContent = d.owner;
@@ -3732,6 +4137,7 @@ function flyStep(dt) {
   for (const p of planets) {
     if (!p.alive || p === home) continue;
     const d = ship.position.distanceTo(p.group.position);
+    if (d < p.R * 6 && !visited.has(p)) { visited.add(p); missionEvent("visit", p.data.id || p.data.name); }
     const alien = p.data.decor.find((x) => x.type === "alien");
     if (alien) {
       if (d > p.R * 16) p.alienGreeted = false;
@@ -3761,16 +4167,20 @@ function updateTags() {
     if (edge) { v.x = Math.max(-.82, Math.min(.82, v.x)); v.y = Math.max(-.75, Math.min(.8, v.y)); }
     p.tag.hidden = false; p.tag.classList.toggle("edge", false); p.tag.classList.toggle("nav", p === nav); p.tag.classList.toggle("dead", !p.alive);
     p.tag.style.left = (v.x + 1) / 2 * innerWidth + "px"; p.tag.style.top = (1 - v.y) / 2 * innerHeight + "px";
-    p.tag.innerHTML = `${p === nav ? "➤ " : ""}${esc(p.data.name)}<br><b>${esc(p.data.owner)}</b> · ${p.alive ? fmt(p.data.pop) + " people" : "destroyed"} · ${fmt(dist * 1000)} km`;
+    p.tag.innerHTML = `${p === nav ? "➤ " : ""}${esc(p.data.name)}<br><b>${esc(p.data.owner)}</b> · ${p.alive ? fmt(p.data.pop) + " people" : "destroyed"} · ${fmt(dist * 1000)} km${p.data.conqueredBy ? `<br>🏴 conquered by ${esc(p.data.conqueredBy.name)}` : ""}`;
   }
   for (const n of fighters()) { // names over alien ships and other players that are close
-    const d = n.group.position.distanceTo(ship.position), show = !n.dead && (n.remote ? d < 220 : flying && d < (n.hostile ? 140 : n.T && n.T.big ? 260 : 45));
-    if (!show) { n.tag.hidden = true; continue; }
+    const d = n.group.position.distanceTo(ship.position), near = !n.dead && (n.remote ? d < 220 : flying && d < (n.hostile ? 140 : n.T && n.T.big ? 260 : 70));
+    const far = !n.dead && flying && d < (n.T && n.T.big ? 3000 : n.remote ? 1500 : 450);
+    if (!near && !far) { n.tag.hidden = true; continue; }
     v.copy(n.group.position); v.y += n.info.radius * 1.5; v.project(camera);
     if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) { n.tag.hidden = true; continue; }
-    n.tag.hidden = false; n.tag.classList.toggle("dead", n.hostile);
+    const threat = attackers.has(n);
+    n.tag.hidden = false; n.tag.classList.toggle("dead", n.hostile || threat); n.tag.classList.toggle("blip", !near); n.tag.classList.toggle("threat", threat);
+    n.tag.classList.toggle("friend", !!n.remote || clock() < (n.escortUntil || 0)); n.tag.classList.toggle("cop", n.role === "patrol");
     n.tag.style.left = (v.x + 1) / 2 * innerWidth + "px"; n.tag.style.top = (1 - v.y) / 2 * innerHeight + "px";
-    n.tag.textContent = n.remote ? `🧑‍🚀 ${n.name} · ${Math.ceil(n.hp)}%` : `${n.hostile ? "⚠ " : ""}${n.name} · ${Math.ceil(n.hp / n.maxHp * 100)}%`;
+    n.tag.textContent = !near ? (n.T && n.T.big ? "◆ " + n.name : n.hostile ? "◆" : "◇")
+      : n.remote ? `🧑‍🚀 ${n.name} · ${Math.ceil(n.hp)}%` : `${threat ? "⚠ ATTACKING YOU · " : n.hostile ? "⚠ " : clock() < (n.escortUntil || 0) ? "🤝 " : ""}${n.name} · ${Math.ceil(n.hp / n.maxHp * 100)}%`;
   }
   const st = $("shipTag");
   if (mode === "home" && view === "main") {
@@ -3795,9 +4205,18 @@ $("attack").addEventListener("click", () => {
 });
 $("resetAsk").addEventListener("click", () => { $("resetConfirm").hidden = false; $("resetAskRow").hidden = true; });
 $("resetNo").addEventListener("click", () => { $("resetConfirm").hidden = true; $("resetAskRow").hidden = false; });
+$("resetAll").addEventListener("click", () => { setView("planet"); $("resetConfirm").hidden = false; $("resetAskRow").hidden = true; });
+function resetPlayerStuff() { // money, weapons, missions, and everyone's anger at you
+  Object.assign(wallet, { credits: 150, owned: [] }); saveWallet();
+  try { localStorage.removeItem(MISSIONKEY); localStorage.removeItem(SEENKEY); } catch {}
+  lastPlayerAttack = -99; lastHitNpc = null; shipHp = 100;
+  state.ship = { ...structuredClone(PRESETS.fighter), name: state.ship.name }; delete state.ship.label; buildShip();
+  spawnNpcs(); renderHangar(); renderMissions();
+}
 $("reset").addEventListener("click", () => {
   $("resetConfirm").hidden = true; $("resetAskRow").hidden = false;
-  if (net.me) { const b = defaults().home; net.send({ t: "resetPlanet", planet: { design: b.design, decor: b.decor } }); setTool(null); toast("Your planet is back to the start"); return; }
+  resetPlayerStuff();
+  if (net.me) { const b = defaults().home; net.send({ t: "resetPlanet", planet: { design: b.design, decor: b.decor } }); setTool(null); toast("Everything is back to the start: money, ship, weapons, missions and your planet"); save(); return; }
   for (const p of planets) for (const im of Object.values(p.parts)) im.count = 0;
   state = defaults(); setNav(null); mapSel = null; mailPlanet = null; setTool(null); draftImg = ''; showSignPreview('');
   buildWorld(); buildShip(); spawnNpcs(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); save(); setView("main");
@@ -3818,6 +4237,7 @@ const timer = new THREE.Clock();
 let mapTick = 0;
 function frame() {
   const realDt = Math.min(timer.getDelta(), .05), dt = realDt * slow, t = timer.elapsedTime;
+  drawMinimap(); updateThreats();
   sky.position.copy(camera.position); sky.userData.starMat.uniforms.time.value = t;
   const still = reduce || brushing || (mode === "home" && (!!tool || view === "design" || view === "build"));
   if (!still) home.spin.rotation.y += dt * .04;
