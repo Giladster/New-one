@@ -62,7 +62,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .stat .fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--accent) 40%, var(--good)); transition: width .3s; }
 .stat .k { width: 46px; color: var(--muted); }
 
-.sidebar { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: clamp(250px, 30vw, 330px); overflow-y: auto; align-content: start; }
+.sidebar { top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; max-height: calc(100% - 120px - env(safe-area-inset-bottom, 0px)); width: clamp(250px, 30vw, 330px); overflow-y: auto; align-content: start; }
 .side { right: 16px; width: 290px; }
 #p-mail { top: calc(16px + env(safe-area-inset-top, 0px)); }
 #p-chat { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
@@ -90,6 +90,14 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 #mapCard h2 { margin: 0; font: 700 18px var(--display); }
 
 #dock { left: 16px; right: 16px; margin-inline: auto; width: max-content; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 32px); }
+.dd { position: relative; display: flex; }
+.ddm { position: absolute; bottom: calc(100% + 10px); left: 0; display: grid; gap: 4px; padding: 6px; min-width: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.ddm button { text-align: left; }
+.tabs { display: flex; gap: 4px; position: sticky; top: -14px; z-index: 2; padding: 6px 0; margin-top: -4px; background: rgba(14, 18, 38, .96); }
+.tabs button { flex: 1; padding: 6px 4px; font-size: 12px; }
+.prank-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.prank-row b { color: var(--accent); }
+.prank-row time { color: var(--muted); font-family: var(--mono, monospace); }
 #dock .sep { width: 1px; background: var(--line); margin: 2px; }
 #netPill { align-self: center; font: 12px var(--mono); color: var(--good); padding: 0 6px; white-space: nowrap; }
 #netPill.off { color: var(--accent); }
@@ -193,14 +201,15 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 
 <section id="p-build" class="hud panel sidebar" data-panel="build" hidden>
   <div class="ph"><span class="label">Decorate</span><button class="x" data-close="view" aria-label="Close decorate">×</button></div>
-  <span class="small">Pick an item, move over your planet to see where it goes, then click to place it.</span>
-  <div class="group"><span class="label">Buildings</span><div class="row"><button data-tool="tower">Tower</button><button data-tool="house">House</button><button data-tool="castle">Castle</button><button data-tool="base">Space base</button><button data-tool="sign">Sign</button></div></div>
-  <div class="group"><span class="label">Defense</span><div class="row"><button data-tool="turret">Defense tower</button></div><span class="small">Shoots at anyone who attacks your planet.</span></div>
-  <div class="group"><span class="label">Aliens</span><div class="row"><button data-tool="alien">Alien</button></div>
+  <div class="tabs" data-tabs="build"><button data-tab="build">Build</button><button data-tab="fun">Fun</button><button data-tab="edit">Change</button></div>
+  <span class="small">Pick an item, move over your planet to see where it goes, then click to place it. Signs can hold a picture, like your face.</span>
+  <div class="group" data-tab="build"><span class="label">Buildings</span><div class="row"><button data-tool="tower">Tower</button><button data-tool="house">House</button><button data-tool="castle">Castle</button><button data-tool="base">Space base</button><button data-tool="sign">Sign</button></div></div>
+  <div class="group" data-tab="build"><span class="label">Defense</span><div class="row"><button data-tool="turret">Defense tower</button></div><span class="small">Shoots at anyone who attacks your planet.</span></div>
+  <div class="group" data-tab="fun"><span class="label">Aliens</span><div class="row"><button data-tool="alien">Alien</button></div>
     <div class="group" id="alienBox" hidden><div class="choice" id="alienKinds"></div><div class="choice" id="alienPose"></div></div>
   </div>
-  <div class="group"><span class="label">Famous landmarks</span><div class="row"><button data-tool="pisa">Pisa tower</button><button data-tool="eiffel">Eiffel tower</button><button data-tool="magic">Magic castle</button></div></div>
-  <div class="group"><span class="label">Change things</span><div class="row"><button data-tool="editsign">Edit an item</button><button data-tool="remove" class="danger">Eraser</button></div></div>
+  <div class="group" data-tab="fun"><span class="label">Famous landmarks</span><div class="row"><button data-tool="pisa">Pisa tower</button><button data-tool="eiffel">Eiffel tower</button><button data-tool="magic">Magic castle</button></div></div>
+  <div class="group" data-tab="edit"><span class="label">Change things</span><div class="row"><button data-tool="editsign">Edit an item</button><button data-tool="remove" class="danger">Eraser</button></div></div>
   <div class="group"><span class="label" id="signBoxTitle">New item</span>
     <label class="slider">Size<input type="range" id="signSize" min="0.5" max="8" step="0.05" value="1"></label>
   </div>
@@ -210,14 +219,15 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <div class="row"><label class="filebtn" for="signImg">Add picture</label><input id="signImg" type="file" accept="image/*" hidden><button id="signImgClear">No picture</button><img id="signPreview" alt="Sign picture" hidden></div>
   </div>
   <div class="row" id="signDoneRow" hidden><button class="go" id="signDone">Done editing</button></div>
-  <div class="row"><button class="danger" id="attack">Test attack</button></div>
+  <div class="row" data-tab="edit"><button class="danger" id="attack">Test attack</button></div>
 </section>
 
 <section id="p-design" class="hud panel sidebar" data-panel="design" hidden>
   <div class="ph"><span class="label">Design your planet</span><button class="x" data-close="view" aria-label="Close design">×</button></div>
-  <div class="group"><span class="label">Name</span><input id="nameInput" type="text" maxlength="20" aria-label="Planet name"></div>
-  <div class="group"><span class="label">Templates</span><div class="templates" id="templates"></div></div>
-  <div class="group"><span class="label">Colors</span>
+  <div class="tabs" data-tabs="design"><button data-tab="look">Look</button><button data-tab="shape">Shape</button><button data-tab="around">Around</button><button data-tab="people">People</button></div>
+  <div class="group" data-tab="look"><span class="label">Name</span><input id="nameInput" type="text" maxlength="20" aria-label="Planet name"></div>
+  <div class="group" data-tab="look"><span class="label">Templates</span><div class="templates" id="templates"></div></div>
+  <div class="group" data-tab="look"><span class="label">Colors</span>
     <div class="colors">
       <label>sea<input type="color" id="c-sea"></label>
       <label>beach<input type="color" id="c-shore"></label>
@@ -226,12 +236,12 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
       <label>peaks<input type="color" id="c-peak"></label>
     </div>
   </div>
-  <div class="group"><span class="label">Pattern</span>
+  <div class="group" data-tab="look"><span class="label">Pattern</span>
     <div class="choice" id="patterns"></div>
     <div class="row"><input type="color" id="c-p1" aria-label="Pattern color 1"><input type="color" id="c-p2" aria-label="Pattern color 2"><span class="label">air</span><input type="color" id="c-atmo" aria-label="Air glow color"><span class="label">clouds</span><input type="color" id="c-clouds" aria-label="Cloud color"></div>
     <div class="choice" id="cloudToggle"></div>
   </div>
-  <div class="group"><span class="label">Shape</span>
+  <div class="group" data-tab="shape"><span class="label">Shape</span>
     <div class="choice" id="shapes"></div>
     <label class="slider">Shape strength<input type="range" id="s-shapeAmt" min="0" max="1.5" step="0.05"></label>
     <div class="row"><button data-tool="grab">✋ Pull / push</button><button data-tool="unshape">Undo shape</button><button id="resetForm">Reset shape</button></div>
@@ -241,19 +251,19 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <label class="slider">Bumpiness<input type="range" id="s-bump" min="0.5" max="4" step="0.05"></label>
     <div class="row"><button id="newShape">New shape</button></div>
   </div>
-  <div class="group"><span class="label">Brushes · drag on the planet</span>
+  <div class="group" data-tab="shape"><span class="label">Brushes · drag on the planet</span>
     <div class="row"><button data-tool="raise">Mountain</button><button data-tool="lower">Sea</button><button data-tool="smooth">Smooth</button><button data-tool="paint">Paint</button><input type="color" id="c-brush" value="#ff5ab4" aria-label="Paint color"></div>
     <label class="slider">Brush size<input type="range" id="s-brush" min="0.08" max="1.3" step="0.01" value="0.3"></label>
     <label class="slider">Brush power<input type="range" id="s-power" min="0.004" max="0.06" step="0.001" value="0.018"></label>
     <div class="row"><button id="clearSculpt">Clear brushes</button><button id="clearPaint">Clear paint</button></div>
   </div>
-  <div class="group"><span class="label">Around your planet</span>
+  <div class="group" data-tab="around"><span class="label">Around your planet</span>
     <div class="choice" id="aroundToggles"></div>
     <div class="row"><span class="label">smoke color</span><input type="color" id="c-smoke" value="#9a7aff" aria-label="Smoke color"></div>
     <label class="slider">Satellites<input type="range" id="s-sats" min="0" max="6" step="1"></label>
     <span class="small">Aliens, castles and defense towers are in Decorate.</span>
   </div>
-  <div class="group"><span class="label">Your people</span>
+  <div class="group" data-tab="people"><span class="label">Your people</span>
     <div class="choice" id="peopleKinds"></div>
     <div class="row"><label class="label">skin <input type="color" id="pp-skin"></label><label class="label">shirts <input type="color" id="pp-shirt"></label><label class="label">pants <input type="color" id="pp-pants"></label></div>
     <div class="choice" id="peopleMix"></div>
@@ -263,24 +273,25 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 
 <section id="p-hangar" class="hud panel sidebar" data-panel="hangar" hidden>
   <div class="ph"><span class="label">Hangar · build your ship</span><button class="x" data-close="view" aria-label="Close hangar">×</button></div>
-  <div class="group"><span class="label">Quick ships</span><div class="choice" id="presets"></div></div>
-  <div class="group"><span class="label">Ship name</span><input id="shipName" type="text" maxlength="18" aria-label="Ship name"></div>
-  <label class="slider">Size<input type="range" id="shipSize" min="0.6" max="3" step="0.05"></label>
-  <div class="group"><span class="label">Body</span><div class="choice" id="hulls"></div></div>
-  <div class="group"><span class="label">Wings</span><div class="choice" id="wings"></div></div>
-  <div class="group"><span class="label">Engines</span><div class="choice" id="engines"></div></div>
-  <div class="group"><span class="label">Extras</span><div class="choice" id="extras"></div></div>
-  <div class="group"><span class="label">Finish</span><div class="choice" id="finishes"></div></div>
-  <div class="group"><span class="label">Colors</span>
+  <div class="tabs" data-tabs="hangar"><button data-tab="ship">Ship</button><button data-tab="style">Style</button><button data-tab="fire">Fire</button><button data-tab="weapons">Weapons</button></div>
+  <div class="group" data-tab="ship"><span class="label">Quick ships</span><div class="choice" id="presets"></div></div>
+  <div class="group" data-tab="ship"><span class="label">Ship name</span><input id="shipName" type="text" maxlength="18" aria-label="Ship name"></div>
+  <div class="group" data-tab="ship"><label class="slider">Size<input type="range" id="shipSize" min="0.6" max="3" step="0.05"></label></div>
+  <div class="group" data-tab="ship"><span class="label">Body</span><div class="choice" id="hulls"></div></div>
+  <div class="group" data-tab="ship"><span class="label">Wings</span><div class="choice" id="wings"></div></div>
+  <div class="group" data-tab="ship"><span class="label">Engines</span><div class="choice" id="engines"></div></div>
+  <div class="group" data-tab="style"><span class="label">Extras</span><div class="choice" id="extras"></div></div>
+  <div class="group" data-tab="style"><span class="label">Finish</span><div class="choice" id="finishes"></div></div>
+  <div class="group" data-tab="style"><span class="label">Colors</span>
     <div class="row"><label class="label">body <input type="color" id="sc-body"></label><label class="label">trim <input type="color" id="sc-accent"></label></div>
     <div class="row"><label class="label">glow <input type="color" id="sc-glow"></label></div>
   </div>
-  <div class="group"><span class="label">Engine fire</span>
+  <div class="group" data-tab="fire"><span class="label">Engine fire</span>
     <div class="choice" id="flameShapes"></div>
     <label class="slider">Fire size<input type="range" id="flameSize" min="0.5" max="3" step="0.05"></label>
     <div class="row"><label class="label">fire <input type="color" id="sc-flame"></label><label class="label">boost fire <input type="color" id="sc-boost"></label><button id="boostPrev">Show boost</button></div>
   </div>
-  <div class="group"><span class="label">Weapons shop · 💰 <b id="credits">0</b> credits</span>
+  <div class="group" data-tab="weapons"><span class="label">Weapons shop · 💰 <b id="credits">0</b> credits</span>
     <div class="shop" id="shop"></div>
     <span class="small">Earn credits by beating enemy ships and attacking other planets.</span>
   </div>
@@ -307,6 +318,26 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <div id="mapCard"><span class="small">Click a planet on the map to see who owns it.</span></div>
 </section>
 
+<section id="p-prank" class="hud panel side" data-panel="prank" hidden>
+  <div class="ph"><span class="label">😈 Prank a planet</span><button class="x" data-close="prank" aria-label="Close prank">×</button></div>
+  <span class="small">Pick a prank, aim at another player's planet and press <b>P</b> (or the button). Pranks fade after the time you pick.</span>
+  <div class="choice" id="prankKinds"></div>
+  <div class="group" id="prankTextBox"><input id="prankText" type="text" maxlength="24" value="I WAS HERE" aria-label="Prank text"></div>
+  <div class="row" id="prankImgBox"><label class="filebtn" for="prankImg">Add picture</label><input id="prankImg" type="file" accept="image/*" hidden><img id="prankPreview" alt="Prank picture" hidden></div>
+  <span class="label">How long it stays</span><div class="choice" id="prankHours"></div>
+  <div class="row"><button class="go" id="prankGo">Prank it! · 💰 0</button></div>
+</section>
+<section id="p-pranks" class="hud panel side" data-panel="pranks" hidden>
+  <div class="ph"><span class="label" id="pranksTitle">😈 Pranks</span><button class="x" data-close="pranks" aria-label="Close pranks">×</button></div>
+  <span class="label">On your planet</span><div id="pranksMine"></div>
+  <span class="label">Your pranks out there</span><div id="pranksOut"></div>
+</section>
+<section id="p-god" class="hud panel side" data-panel="god" hidden>
+  <div class="ph"><span class="label">⚡ God mode · only you</span><button class="x" data-close="god" aria-label="Close god mode">×</button></div>
+  <div class="choice" id="godToggles"></div>
+  <div class="row"><button id="godMoney">+100,000 credits</button><button id="godUnlock">Unlock all weapons</button></div>
+  <div class="row"><button id="godPirates">Send pirates</button><button id="godHeal">Heal my planet</button><button id="godPrank">Prank me (test)</button></div>
+</section>
 <section id="p-help" class="hud panel" data-panel="help" hidden>
   <div class="ph"><span class="label">Flight controls</span><button class="x" data-close="help" aria-label="Close flight controls">×</button></div>
   <div class="keys">
@@ -325,6 +356,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
     <kbd>B</kbd><span>drop bomb</span>
     <kbd>T</kbd><span>send troops</span>
     <kbd>M</kbd><span>mailbox of the planet you look at</span>
+    <kbd>P</kbd><span>prank the planet you aim at (pick a prank in 😈 Prank)</span>
     <kbd>Esc</kbd><span>close menus · use Home to fly home</span>
   </div>
   <label class="slider">Mouse speed<input type="range" id="s-sens" min="0.0008" max="0.006" step="0.0001"></label>
@@ -338,6 +370,7 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
   <div class="tname"><span id="tName"></span><span id="tOwner"></span></div>
   <div class="stat"><span class="k">HEALTH</span><div class="bar"><div class="fill" id="tHp"></div></div><span id="tHpText"></span></div>
   <div class="stat"><span class="k">PEOPLE</span><span id="tPop"></span><span id="tTroops" class="small"></span></div>
+  <div class="stat" id="tPrankRow" hidden><span class="k">PRANKS</span><span id="tPranks"></span></div>
 </section>
 <div id="weapons" class="hud" hidden></div>
 <div id="crosshair" hidden></div>
@@ -358,16 +391,18 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px 
 
 <nav id="dock" class="hud" aria-label="Menus">
   <button id="homeBtn">⌂ Home</button>
-  <button data-view="planet" data-home>Planet</button>
-  <button data-view="design" data-home>Design</button>
-  <button data-view="build" data-home>Decorate</button>
-  <button data-view="hangar" data-home>Hangar</button>
-  <button data-open="map">Map</button>
-  <button data-open="mail">Mail</button>
-  <button data-open="chat" data-home>Chat</button>
-  <button data-open="help" data-fly>Controls</button>
-  <button id="soundBtn">Sound</button>
-  <button id="gfxBtn">Graphics</button>
+  <div class="dd"><button class="ddb">🪐 My planet ▾</button><div class="ddm" hidden>
+    <button data-view="planet" data-home>Planet info</button><button data-view="design" data-home>Design</button><button data-view="build" data-home>Decorate</button><button data-open="pranks">😈 Pranks</button>
+  </div></div>
+  <button data-view="hangar" data-home>🚀 Hangar</button>
+  <button data-open="map">🗺 Map</button>
+  <button data-open="prank" data-fly>😈 Prank</button>
+  <div class="dd"><button class="ddb">💬 Talk ▾</button><div class="ddm" hidden>
+    <button data-open="mail">Mailbox</button><button data-open="chat" data-home>Galaxy chat</button>
+  </div></div>
+  <div class="dd"><button class="ddb" aria-label="Settings">⚙ ▾</button><div class="ddm" hidden>
+    <button data-open="help" data-fly>Flight controls</button><button id="soundBtn">Sound</button><button id="gfxBtn">Graphics</button><button data-open="god" id="godBtn" hidden>⚡ God mode</button>
+  </div></div>
   <span id="netPill" hidden>● connecting…</span>
   <span class="sep" data-home></span>
   <button class="go" id="flyBtn" data-home>Fly</button>
@@ -442,7 +477,7 @@ const wallet = (() => { try { return JSON.parse(localStorage.getItem(WALLETKEY))
 function saveWallet() { try { localStorage.setItem(WALLETKEY, JSON.stringify(wallet)); } catch {} }
 function gunStats() {
   const g = new Set(state.ship.guns || []);
-  return { bolts: g.has("twin") ? 2 : 1, cd: g.has("gatling") ? .5 : 1, dmg: (g.has("heavy") ? 1.6 : 1) * (g.has("plasma") ? 2 : 1), thick: g.has("heavy") ? 2.2 : g.has("plasma") ? 3 : 1, color: g.has("plasma") ? new THREE.Color(.6, 3.5, .8) : g.has("heavy") ? new THREE.Color(3.5, 1.4, .3) : new THREE.Color(4, .5, .8), missiles: g.has("pods") ? 2 : 1 };
+  return { bolts: g.has("twin") ? 2 : 1, cd: g.has("gatling") ? .5 : 1, dmg: (g.has("heavy") ? 1.6 : 1) * (g.has("plasma") ? 2 : 1) * (godOn("oneshot") ? 999 : 1), thick: g.has("heavy") ? 2.2 : g.has("plasma") ? 3 : 1, color: g.has("plasma") ? new THREE.Color(.6, 3.5, .8) : g.has("heavy") ? new THREE.Color(3.5, 1.4, .3) : new THREE.Color(4, .5, .8), missiles: g.has("pods") ? 2 : 1 };
 }
 const FINISHES = { metal: "Metal", chrome: "Chrome", matte: "Matte", carbon: "Carbon", neon: "Neon glow" };
 const PRESETS = {
@@ -1271,7 +1306,7 @@ class Planet {
     this.grid = new Float32Array(GW * GH); this.gridLand = new Uint8Array(GW * GH);
     this.people = []; this.signs = []; this.lastHit = -99; this.cheerUntil = 0; this.dirty = false; this.lastBuild = 0; this.welcomed = false;
     this.setStyle();
-    this.refreshBase(); this.rebuild(); this.rebuildDecor(); this.buildAround();
+    this.refreshBase(); this.rebuild(); this.rebuildDecor(); this.rebuildPranks(); this.buildAround();
     if (data.dead) this.showDead();
     else { this.syncPeople(true); this.addSoldiers(data.troops, null); }
   }
@@ -1421,7 +1456,13 @@ class Planet {
     for (const d of this.data.decor) { const o = makeDecor(d.type, d); o.userData.decor = d; this.decor.add(o); }
     this.placeDecor();
   }
-  placeDecor() { for (const o of this.decor.children) orientOnPlanet(o, this, V(o.userData.decor.n).normalize(), o.userData.decor.face); }
+  placeDecor() { for (const o of this.decor.children) orientOnPlanet(o, this, V(o.userData.decor.n).normalize(), o.userData.decor.face); if (this.prankGroup && this.prankGroup.children.length) this.rebuildPranks(); }
+  rebuildPranks() { // other players' pranks: signs, photos, graffiti, toilet paper, ducks, statues
+    if (!this.prankGroup) { this.prankGroup = new THREE.Group(); this.spin.add(this.prankGroup); }
+    this.prankGroup.clear(); this.prankShown = 0;
+    if (!this.alive) return;
+    for (const k of livePranks(this.data)) { try { const o = buildPrank(this, k); o.userData.prank = k; this.prankGroup.add(o); this.prankShown++; } catch (e) { console.error("prank", e); } }
+  }
   brush(n, tool, size, rgb) {
     const cosL = Math.cos(size);
     for (let u = 0; u < this.U; u++) {
@@ -1446,6 +1487,7 @@ class Planet {
   }
   hitAt(n, kind, remote = false) { // remote = another player's shot, told to us by the server
     if (!this.alive) return;
+    if (this.isHome && godOn("shield")) { spark(this.mesh.localToWorld(n.clone().multiplyScalar(this.R)), .5, C(0x8fd0ff, 2)); return; }
     const cfg = DAMAGE[kind];
     if (!remote) lastPlayerAttack = clock();
     if (!remote && net.me && this.data.id) net.send({ t: "hit", id: this.data.id, n: n.toArray().map(r3), kind });
@@ -2172,19 +2214,19 @@ function setView(v) {
   if (mode !== "home") return;
   view = v;
   for (const [vv, panel] of Object.entries(VIEWS)) ui[panel] = vv === v;
-  if (v !== "main") ui.mail = ui.chat = ui.map = ui.help = false; // only one menu open at a time
+  if (v !== "main") ui.mail = ui.chat = ui.map = ui.help = ui.prank = ui.pranks = ui.god = false; // only one menu open at a time
   $("renameRow").hidden = true;
   setTool(null); frameCamera(); renderPanels(); saveUi();
 }
 function goMain() { // Esc and the Home button: straight back to the normal view
   if (mode === "fly") return land();
   if (mode !== "home") return;
-  ui.map = ui.mail = ui.chat = false;
+  ui.map = ui.mail = ui.chat = ui.pranks = ui.god = false;
   setView("main");
 }
 function setPanel(name, open) { // small panels on top of any view: map, mail, chat, flight controls
   if (open) { // opening a menu closes the one that was open
-    for (const k of ["mail", "chat", "map", "help"]) if (k !== name) ui[k] = false;
+    for (const k of ["mail", "chat", "map", "help", "prank", "pranks", "god"]) if (k !== name) ui[k] = false;
     if (mode === "home" && view !== "main") setView("main");
   }
   ui[name] = open;
@@ -2196,8 +2238,8 @@ function renderPanels() {
   document.querySelectorAll("[data-panel]").forEach((el) => {
     const name = el.dataset.panel;
     let show = !!ui[name];
-    if (fly) show = show && ["map", "mail", "help"].includes(name);
-    else show = show && name !== "help" && !(view !== "main" && (name === "mail" || name === "chat"));
+    if (fly) show = show && ["map", "mail", "help", "prank", "pranks", "god"].includes(name);
+    else show = show && name !== "help" && name !== "prank" && !(view !== "main" && ["mail", "chat", "pranks", "god"].includes(name));
     el.hidden = !show;
   });
   document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", !fly && view === b.dataset.view));
@@ -2209,8 +2251,35 @@ function renderPanels() {
   $("soundBtn").textContent = ui.muted ? "Sound off" : "Sound on";
   $("gfxBtn").textContent = ui.low ? "Graphics: fast" : "Graphics: best";
   $("soundBtn").classList.toggle("on", !ui.muted);
+  $("godBtn").hidden = !godAllowed();
+  document.querySelectorAll(".dd").forEach((d) => { // a drop-down shows only when it has something in it, and lights up when one of its menus is open
+    const items = [...d.querySelectorAll(".ddm > button")];
+    d.hidden = items.every((b) => b.hidden);
+    d.querySelector(".ddb").classList.toggle("on", items.some((b) => (b.dataset.view || b.dataset.open) && b.classList.contains("on")));
+  });
+  if (ui.prank && fly) renderPrankTool();
+  if (ui.pranks) renderPranks();
+  if (ui.god) renderGod();
   updateHint();
 }
+// drop-down menus in the dock
+document.querySelectorAll(".dd").forEach((d) => {
+  const b = d.querySelector(".ddb"), m = d.querySelector(".ddm");
+  b.addEventListener("click", (e) => { e.stopPropagation(); const open = m.hidden; document.querySelectorAll(".ddm").forEach((x) => (x.hidden = true)); m.hidden = !open; });
+  m.addEventListener("click", () => (m.hidden = true));
+});
+addEventListener("pointerdown", (e) => { if (!e.target.closest(".dd")) document.querySelectorAll(".ddm").forEach((x) => (x.hidden = true)); });
+// tabs inside the big menus
+ui.tabs ||= {};
+function renderTabs() {
+  document.querySelectorAll("[data-tabs]").forEach((bar) => {
+    const panel = bar.parentElement, btns = [...bar.querySelectorAll("[data-tab]")], cur = ui.tabs[bar.dataset.tabs] || btns[0].dataset.tab;
+    btns.forEach((b) => b.classList.toggle("on", b.dataset.tab === cur));
+    panel.querySelectorAll(":scope > [data-tab]").forEach((g) => (g.hidden = g.dataset.tab !== cur));
+  });
+}
+document.querySelectorAll("[data-tabs] [data-tab]").forEach((b) => b.addEventListener("click", () => { ui.tabs[b.closest("[data-tabs]").dataset.tabs] = b.dataset.tab; saveUi(); renderTabs(); }));
+renderTabs();
 document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => (b.dataset.close === "view" ? setView("main") : setPanel(b.dataset.close, false))));
 document.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.open, !ui[b.dataset.open])));
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(view === b.dataset.view ? "main" : b.dataset.view)));
@@ -2444,9 +2513,10 @@ function renderShop() {
   const s = state.ship, el = $("shop"); $("credits").textContent = Math.floor(wallet.credits); el.innerHTML = "";
   for (const [k, g] of Object.entries(GUNS)) {
     const owned = wallet.owned.includes(k), on = (s.guns || []).includes(k), b = document.createElement("button");
-    b.classList.toggle("on", on); b.innerHTML = `<b>${g.label}</b><span>${owned ? (on ? "✓ on your ship · click to take off" : "yours · click to put on") : `💰 ${g.cost}`} · ${g.info}</span>`;
+    const cost = godOn("free") ? 0 : g.cost;
+    b.classList.toggle("on", on); b.innerHTML = `<b>${g.label}</b><span>${owned ? (on ? "✓ on your ship · click to take off" : "yours · click to put on") : `💰 ${cost}`} · ${g.info}</span>`;
     b.addEventListener("click", () => {
-      if (!owned) { if (wallet.credits < g.cost) return toast(`You need ${Math.ceil(g.cost - wallet.credits)} more credits for the ${g.label}.`); wallet.credits -= g.cost; wallet.owned.push(k); saveWallet(); toast(`🛒 You bought the ${g.label}!`); }
+      if (!owned) { if (wallet.credits < cost) return toast(`You need ${Math.ceil(cost - wallet.credits)} more credits for the ${g.label}.`); wallet.credits -= cost; wallet.owned.push(k); saveWallet(); toast(`🛒 You bought the ${g.label}!`); }
       const set = new Set(s.guns || []); if (owned && on) set.delete(k); else set.add(k); s.guns = [...set];
       buildShip(); renderHangar(); save();
     });
@@ -2495,6 +2565,160 @@ function hookInput(inputId, btnId, onSend) {
 hookInput("mailText", "mailSend", (t) => { const p = mailPlanet || home; if (net.me) { net.send({ t: "mail", id: p.data.id, text: t }); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); return; } p.data.mail.push({ who: state.home.owner, text: t, t: hhmm() }); renderMail(); if (p !== home) toast(`📬 Note left for ${esc(p.data.owner)}`); });
 hookInput("chatText", "chatSend", (t) => { if (net.me) return net.send({ t: "chat", text: t }); state.chat.push({ who: state.home.owner, text: t, t: hhmm() }); renderChat(); });
 $("mailHome").addEventListener("click", () => openMail(home));
+
+// ================= pranks =================
+const PRANKS = {
+  sign:     { label: "Prank sign",    cost: 40,  icon: "🪧", info: "your words on their planet" },
+  photo:    { label: "Photo board",   cost: 60,  icon: "📸", info: "a big picture, like your face" },
+  graffiti: { label: "Graffiti",      cost: 50,  icon: "🎨", info: "spray paint on their ground" },
+  tp:       { label: "Toilet paper",  cost: 80,  icon: "🧻", info: "wrap the whole planet" },
+  ducks:    { label: "Rubber ducks",  cost: 70,  icon: "🦆", info: "ducks everywhere" },
+  statue:   { label: "Statue of you", cost: 150, icon: "🗿", info: "a giant golden you" },
+};
+const PRANK_HOURS = { 48: "2 days", 72: "3 days", 96: "4 days" }, HOUR_PRICE = { 48: 1, 72: 1.5, 96: 2 };
+const SEENKEY = "tinyplanets.seenPranks";
+const prankDraft = { type: "sign", hours: 48, img: "" };
+const livePranks = (d) => (d.pranks || []).filter((k) => k.until > Date.now());
+const isMyPrank = (k) => (net.me ? k.byId === net.me.id : !!k.byMe);
+const prankCost = (type = prankDraft.type, hours = prankDraft.hours) => (godOn("free") ? 0 : Math.round(PRANKS[type].cost * HOUR_PRICE[hours]));
+const cleanCost = (k) => (godOn("free") ? 0 : Math.round(PRANKS[k.type].cost * .6));
+function fmtLeft(ms) { const m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? `${d}d ${h % 24}h` : h ? `${h}h ${m % 60}m` : `${m}m`; }
+function seeded(str) { let h = 1779033703; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return () => { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
+const graffitiTex = new Map();
+function graffitiTexture(text, seed) {
+  if (graffitiTex.has(seed)) return graffitiTex.get(seed);
+  const c = document.createElement("canvas"); c.width = 512; c.height = 256; const g = c.getContext("2d"), r = seeded(seed);
+  const col = ["#ff3fb4", "#3fffb0", "#ffe23f", "#3fb4ff", "#ff7a2f"][Math.floor(r() * 5)];
+  let size = 110; g.textAlign = "center"; g.textBaseline = "middle";
+  do { g.font = `900 ${size}px "Chakra Petch", Impact, sans-serif`; size -= 4; } while (g.measureText(text).width > 470 && size > 30);
+  g.save(); g.translate(256, 120); g.rotate((r() - .5) * .25);
+  g.lineWidth = 14; g.strokeStyle = "rgba(10,10,20,.85)"; g.strokeText(text, 0, 0); g.fillStyle = col; g.fillText(text, 0, 0);
+  g.fillStyle = col; for (let i = 0; i < 9; i++) { const x = (r() - .5) * g.measureText(text).width, l = 20 + r() * 60; g.fillRect(x, size * .3, 5, l); g.beginPath(); g.arc(x + 2.5, size * .3 + l, 5, 0, 7); g.fill(); } // paint drips
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; graffitiTex.set(seed, t); return t;
+}
+const PRANK_MATS = {
+  tp: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, side: THREE.DoubleSide }),
+  duck: new THREE.MeshStandardMaterial({ color: 0xffd23f, roughness: .45 }), beak: new THREE.MeshStandardMaterial({ color: 0xff8a1f, roughness: .5 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: .9, roughness: .28 }),
+};
+const DUCK = { body: new THREE.SphereGeometry(.03, 14, 10).scale(1, .8, 1.3).translate(0, .024, 0), head: new THREE.SphereGeometry(.018, 12, 10).translate(0, .05, .022), beak: new THREE.ConeGeometry(.008, .018, 8).rotateX(Math.PI / 2).translate(0, .048, .043) };
+function buildPrank(pl, k) {
+  const n = V(k.n).normalize(), s = pl.R / 1.6, r = seeded(k.id || "x"), randDir = () => { const z = r() * 2 - 1, a = r() * Math.PI * 2, q = Math.sqrt(1 - z * z); return new THREE.Vector3(q * Math.cos(a), z, q * Math.sin(a)); };
+  if (k.type === "sign" || k.type === "photo") { const o = makeDecor("sign", { text: k.type === "photo" ? "" : k.text, img: k.img, size: k.type === "photo" ? 3 : 1.7 }); orientOnPlanet(o, pl, n, k.face); return o; }
+  if (k.type === "graffiti") {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, .5), new THREE.MeshBasicMaterial({ map: graffitiTexture((k.text || "HI").toUpperCase(), k.id || "x"), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+    m.position.copy(n).multiplyScalar(pl.radiusAt(n) + .03 * s); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n); m.rotateZ(r() * 6.28); m.scale.setScalar(pl.R * .55); return m;
+  }
+  const g = new THREE.Group();
+  if (k.type === "tp") { // toilet paper wrapped round and round
+    for (let i = 0; i < 5; i++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .05, 96, 1, true), PRANK_MATS.tp); t.quaternion.setFromUnitVectors(UP, randDir()); t.scale.set(pl.R * (pl.maxK || 1) * 1.06, pl.R, pl.R * (pl.maxK || 1) * 1.06); g.add(t); }
+    for (let i = 0; i < 8; i++) { const d = randDir(), roll = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .05, 16), PRANK_MATS.tp); roll.position.copy(d).multiplyScalar(pl.radiusAt(d) + .02 * s); roll.quaternion.setFromUnitVectors(UP, d); roll.rotateX(Math.PI / 2); roll.scale.setScalar(s * 1.6); g.add(roll); }
+    return g;
+  }
+  if (k.type === "ducks") {
+    for (let i = 0; i < 26; i++) {
+      const d = i < 10 ? n.clone().add(randDir().multiplyScalar(.35)).normalize() : randDir(), duck = new THREE.Group();
+      duck.add(new THREE.Mesh(DUCK.body, PRANK_MATS.duck), new THREE.Mesh(DUCK.head, PRANK_MATS.duck), new THREE.Mesh(DUCK.beak, PRANK_MATS.beak));
+      duck.position.copy(d).multiplyScalar(pl.radiusAt(d)); duck.quaternion.setFromUnitVectors(UP, d); duck.rotateY(r() * 6.28); duck.scale.setScalar(s * (1.6 + r() * 1.4)); g.add(duck);
+    }
+    return g;
+  }
+  if (k.type === "statue") { // a giant golden statue of the prankster, waving
+    const st = new THREE.Group(), add = (geo, at, rz = 0) => { const m = new THREE.Mesh(geo, PRANK_MATS.gold); if (at) m.position.copy(at); m.rotation.z = rz; st.add(m); };
+    add(PERSON.torso); add(PERSON.head); add(PERSON.arm, LIMB.armL, 2.6); add(PERSON.arm, LIMB.armR, -.2); add(PERSON.leg, LIMB.legL); add(PERSON.leg, LIMB.legR);
+    add(new THREE.CylinderGeometry(.05, .06, .03, 20).translate(0, -.04, 0));
+    st.userData = { type: "statue", size: 6 }; orientOnPlanet(st, pl, n, k.face); st.position.addScaledVector(n, .2 * s); g.add(st);
+    const t = new THREE.Vector3().randomDirection().projectOnPlane(n).normalize(), n2 = n.clone().addScaledVector(t, .09).normalize();
+    const plate = makeDecor("sign", { text: (k.by || "?") + " WAS HERE", size: 1.2 }); orientOnPlanet(plate, pl, n2, k.face); g.add(plate);
+    return g;
+  }
+  return g;
+}
+function renderPrankTool() {
+  choiceRow($("prankKinds"), Object.fromEntries(Object.entries(PRANKS).map(([k, v]) => [k, `${v.icon} ${v.label}`])), (k) => prankDraft.type === k, (k) => { prankDraft.type = k; renderPrankTool(); });
+  choiceRow($("prankHours"), PRANK_HOURS, (k) => +k === prankDraft.hours, (k) => { prankDraft.hours = +k; renderPrankTool(); });
+  $("prankTextBox").hidden = !["sign", "graffiti"].includes(prankDraft.type);
+  $("prankImgBox").hidden = !["sign", "photo"].includes(prankDraft.type);
+  $("prankPreview").hidden = !prankDraft.img; if (prankDraft.img) $("prankPreview").src = prankDraft.img;
+  $("prankGo").textContent = `Prank it! · 💰 ${prankCost()}`;
+}
+$("prankImg").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; resizeImage(f).then((url) => { prankDraft.img = url; renderPrankTool(); }).catch(() => toast("That file could not be read. Try a JPG or PNG picture.")); });
+$("prankGo").addEventListener("click", () => doPrank());
+function doPrank() {
+  if (mode !== "fly") return toast("Fly to a planet first, then prank it!");
+  const tp = aimPlanet || nearestPlanet(60);
+  if (!tp) return toast("Fly closer to a planet and aim at it to prank it.");
+  if (tp === home && !godAllowed()) return toast("That's your own planet! Prank someone else 😈");
+  if (!tp.alive) return toast("That planet is destroyed. Nothing left to prank.");
+  if (prankDraft.type === "photo" && !prankDraft.img) { setPanel("prank", true); return toast("Add a picture first: open 😈 Prank and press Add picture."); }
+  const cost = prankCost(); if (wallet.credits < cost) return toast(`You need ${Math.ceil(cost - wallet.credits)} more credits for this prank.`);
+  const n = (aimPlanet ? tp.mesh.worldToLocal(aimPoint.clone()) : tp.mesh.worldToLocal(ship.position.clone())).normalize();
+  const face = tp.mesh.worldToLocal(ship.position.clone()).normalize();
+  const k = { type: prankDraft.type, n: n.toArray().map(r3), face: face.toArray().map(r3), text: ($("prankText").value.trim() || "HI").toUpperCase().slice(0, 24), img: ["sign", "photo"].includes(prankDraft.type) ? prankDraft.img : "", hours: prankDraft.hours };
+  wallet.credits -= cost; saveWallet(); earn(0);
+  if (net.me && tp.data.id) net.send({ t: "prank", id: tp.data.id, prank: k });
+  else { (tp.data.pranks ||= []).push({ ...k, id: "k" + Math.random().toString(36).slice(2, 9), by: state.home.owner, byMe: true, at: Date.now(), until: Date.now() + k.hours * 3600e3 }); tp.rebuildPranks(); save(); }
+  sfx.lock(); toast(`😈 ${PRANKS[k.type].icon} ${PRANKS[k.type].label} on ${esc(tp.data.name)}! It stays ${PRANK_HOURS[k.hours]}.`, "", 2600);
+}
+function renderPranks() {
+  const now = Date.now(), mine = livePranks(home.data), out = [];
+  for (const p of planets) if (p !== home) for (const k of livePranks(p.data)) if (isMyPrank(k)) out.push([p, k]);
+  const left = (k) => `<time data-until="${k.until}">fades in ${fmtLeft(k.until - now)}</time>`;
+  $("pranksMine").innerHTML = mine.length ? mine.map((k) => `<div class="prank-row"><span>${PRANKS[k.type].icon} <b>${PRANKS[k.type].label}</b> by ${esc(k.by)}<br>${left(k)}</span><button data-clean="${esc(k.id)}">Clean · 💰${cleanCost(k)}</button></div>`).join("") : `<div class="empty">No pranks on your planet. Lucky you!</div>`;
+  $("pranksOut").innerHTML = out.length ? out.map(([p, k]) => `<div class="prank-row"><span>${PRANKS[k.type].icon} <b>${PRANKS[k.type].label}</b> on ${esc(p.data.name)}<br>${left(k)}</span><span></span></div>`).join("") : `<div class="empty">You haven't pranked anyone yet. Fly to a planet and press P!</div>`;
+  $("pranksMine").querySelectorAll("[data-clean]").forEach((b) => b.addEventListener("click", () => cleanPrank(b.dataset.clean)));
+}
+function cleanPrank(pid) {
+  const k = (home.data.pranks || []).find((x) => x.id === pid); if (!k) return;
+  const c = cleanCost(k); if (wallet.credits < c) return toast(`Cleaning costs ${c} credits. You need ${Math.ceil(c - wallet.credits)} more.`);
+  wallet.credits -= c; saveWallet(); earn(0);
+  if (net.me) net.send({ t: "clean", pid });
+  else { home.data.pranks = home.data.pranks.filter((x) => x.id !== pid); home.rebuildPranks(); save(); renderPranks(); }
+  toast(`🧽 ${PRANKS[k.type].label} cleaned up!`);
+}
+function markPranksSeen() { try { localStorage.setItem(SEENKEY, JSON.stringify(livePranks(home.data).map((k) => k.id))); } catch {} }
+function checkWhileAway() { // show what friends did to your planet while you were gone
+  const seen = new Set(load(SEENKEY) || []), fresh = livePranks(home.data).filter((k) => !seen.has(k.id));
+  if (fresh.length) {
+    $("pranksTitle").textContent = "😱 While you were away…"; setPanel("pranks", true);
+    toast(`😱 While you were away: ${fresh.slice(0, 3).map((k) => `${esc(k.by)} left a ${PRANKS[k.type].label.toLowerCase()}`).join(", ")}${fresh.length > 3 ? "…" : ""}`, "boom", 6000);
+  }
+  markPranksSeen();
+}
+setInterval(() => { // countdowns tick, and old pranks fade away
+  const now = Date.now();
+  document.querySelectorAll("time[data-until]").forEach((t) => (t.textContent = `fades in ${fmtLeft(+t.dataset.until - now)}`));
+  for (const p of planets) if ((p.prankShown || 0) !== livePranks(p.data).length) { p.rebuildPranks(); if (ui.pranks) renderPranks(); }
+}, 1000);
+
+// ================= god mode (only for the game's owner) =================
+ui.godMode ||= {};
+const GOD_TOGGLES = { inv: "Ship can't be hurt", shield: "Planet can't be hurt", oneshot: "One-hit kills", free: "Everything free" };
+function godAllowed() { return !net.online || !!net.god; }
+function godOn(k) { return godAllowed() && !!(ui.godMode && ui.godMode[k]); }
+function renderGod() {
+  choiceRow($("godToggles"), GOD_TOGGLES, (k) => !!ui.godMode[k], (k) => { ui.godMode[k] = !ui.godMode[k]; saveUi(); if (k === "shield" && net.me) net.send({ t: "godShield", on: !!ui.godMode.shield }); renderGod(); renderHangar(); renderPrankTool(); });
+}
+$("godMoney").addEventListener("click", () => earn(100000, "God mode"));
+$("godUnlock").addEventListener("click", () => { wallet.owned = Object.keys(GUNS); saveWallet(); renderHangar(); toast("⚡ All weapons unlocked. Put them on in Hangar → Weapons."); });
+$("godPirates").addEventListener("click", () => {
+  const at = mode === "fly" ? ship.position : home.group.position;
+  for (const n of npcs.filter((x) => x.role === "pirate")) { if (n.dead) n.spawn(); n.group.position.copy(at).add(new THREE.Vector3().randomDirection().multiplyScalar(rnd(30, 45))); n.hostile = true; }
+  toast("🏴‍☠️ Pirates incoming! Fly out to fight them.", "boom", 2500);
+});
+$("godHeal").addEventListener("click", () => {
+  if (net.me) { net.send({ t: "rebuild" }); return toast("⚡ Planet healed"); }
+  if (!home.alive) return $("rebuildHome").click();
+  home.data.hp = 100; home.data.pop = home.data.maxPop; home.dmg.fill(0); home.rebuild(); home.syncPeople(true); renderInfo(); save(); toast("⚡ Planet healed");
+});
+$("godPrank").addEventListener("click", () => {
+  const types = ["sign", "graffiti", "tp", "ducks", "statue"], type = types[(Math.random() * types.length) | 0], n = new THREE.Vector3().randomDirection();
+  const k = { type, n: n.toArray().map(r3), face: n.toArray().map(r3), text: "GOT YOU!", img: "", hours: 48 };
+  if (net.me) net.send({ t: "prank", id: home.data.id, prank: k });
+  else { (home.data.pranks ||= []).push({ ...k, id: "k" + Math.random().toString(36).slice(2, 9), by: "Test Bot", at: Date.now(), until: Date.now() + 48 * 3600e3 }); home.rebuildPranks(); save(); renderPranks(); }
+  toast(`🧪 Test prank: ${PRANKS[type].label} on your planet`);
+});
 
 // ================= star map + navigation =================
 let mapSel = null, nav = null, navArrow = null;
@@ -2719,9 +2943,45 @@ class Npc {
     this.tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(rnd(-.5, .5), rnd(0, 6), rnd(-.5, .5)));
     this.group.position.copy(c).add(new THREE.Vector3(this.orbitR, rnd(-2, 2), 0).applyAxisAngle(UP, this.orbitA));
     this.hp = this.maxHp; this.hostile = false; this.group.visible = true; this.dead = false;
-    if (this.role === "trader") this.pickRoute();
+    this.at = h || null; this.goal = null; this.wait = rnd(0, 3);
   }
-  pickRoute() { const live = planets.filter((p) => p.alive); const p = live[(Math.random() * live.length) | 0]; this.dest = p ? p.group.position.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(p.R * 3)) : new THREE.Vector3(); }
+  plan() { // pick the next place to go, like a real pilot would: a trip, a stop, then the next trip
+    const live = planets.filter((p) => p.alive), any = (a) => a[(Math.random() * a.length) | 0], pos = this.group.position, r = this.role, h = this.home;
+    const near = (p, k) => p.group.position.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(p.R * k + this.info.radius * 2));
+    const players = live.filter((p) => !p.data.npc), centre = new THREE.Vector3().sub(WORLD_OFFSET);
+    let goal = null, wait = 0, p = null;
+    if (r === "trader") { // fly to another planet, stop to trade, move on (racers never stop)
+      const far = live.filter((q) => q !== this.at); p = any(far.length ? far : live);
+      if (p) { goal = near(p, this.T.big ? 6 : 2.8); wait = this.type === "racer" ? 0 : rnd(5, 12); }
+    } else if (r === "orbit" && this.type === "squid") { // squids drift around in long lazy trips
+      goal = pos.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(rnd(40, 90))); wait = rnd(0, 4);
+    } else if (r === "orbit") { // miners dig at a planet for a while, tourists visit and look around
+      p = this.at && Math.random() < .4 ? this.at : any(players.length ? players : live);
+      if (p) { goal = near(p, this.T.low ? 1.75 : 2.4); wait = this.type === "miner" ? rnd(8, 16) : rnd(3, 7); }
+    } else if (r === "guard") { // check points around their home planet
+      if (h) { goal = near(h, rnd(2.6, 5)); wait = rnd(1, 4); } else goal = pos.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(30));
+    } else if (r === "patrol") { // police cruise from planet to planet
+      p = any(players.length ? players : live); if (p) { goal = near(p, 3.2); wait = rnd(2, 6); }
+    } else if (r === "pirate") { // pirates lurk near their station and along trade routes
+      p = h && Math.random() < .6 ? h : any(live); if (p) { goal = near(p, rnd(4, 9)); wait = rnd(2, 6); }
+    } else if (r === "drift") { // giants slowly travel across the galaxy
+      goal = centre.clone().add(new THREE.Vector3(rnd(-1, 1), rnd(-.15, .15), rnd(-1, 1)).normalize().multiplyScalar(rnd(80, 320))); wait = rnd(5, 15);
+    }
+    this.at = p || this.at; this.goal = goal || pos.clone(); this.wait = wait; this.waiting = false;
+  }
+  cruise(dt) { // speed up, travel straight, steer around planets, slow down and stop at the goal
+    const pos = this.group.position;
+    if (!this.goal) this.plan();
+    if (this.waiting) { this.vel.multiplyScalar(Math.exp(-dt * 1.5)); if ((this.wait -= dt) <= 0) this.plan(); return; }
+    const to = this.goal.clone().sub(pos), d = to.length(), stopAt = 1.5 + this.info.radius;
+    if (d < stopAt) { this.waiting = true; return; }
+    const brake = Math.min(1, d / (this.speed * 1.2 + 6)), want = to.multiplyScalar(this.speed * Math.max(.12, brake) / d);
+    for (const p of planets) { // don't fly through planets
+      if (!p.alive) continue; const off = pos.clone().sub(p.group.position), dist = off.length(), zone = p.R * 2.1 * (p.maxK || 1) + this.info.radius * 2;
+      if (dist < zone) want.addScaledVector(off.normalize(), this.speed * (1 - dist / zone) * 1.4);
+    }
+    this.vel.lerp(want, Math.min(1, dt * (this.T.big ? .35 : 1.1)));
+  }
   steer(target, speed, dt, turn = 2) {
     const want = target.clone().sub(this.group.position); const d = want.length(); if (d < .01) return d;
     this.vel.lerp(want.multiplyScalar(speed / d), Math.min(1, dt * turn));
@@ -2746,21 +3006,16 @@ class Npc {
       if (d < keep) this.vel.multiplyScalar(1 - dt * 2);
       this.cool -= dt;
       if (this.cool <= 0 && toPlayer < 70 + this.info.radius * 2) { this.cool = this.T.big ? rnd(.25, .5) : rnd(.5, 1.1); this.shoot(); }
-    } else if (this.role === "trader") {
-      if (this.steer(this.dest, this.speed, dt, 1) < 4 + this.info.radius) this.pickRoute();
-    } else if (this.role === "drift") { // a giant slowly circling the middle of the galaxy
-      this.orbitA += dt * this.speed / this.orbitR;
-      const c = new THREE.Vector3().sub(WORLD_OFFSET);
-      this.steer(new THREE.Vector3(Math.cos(this.orbitA) * this.orbitR, Math.sin(this.orbitA * 3) * 20, Math.sin(this.orbitA) * this.orbitR).applyQuaternion(this.tilt).add(c), this.speed, dt, .6);
-    } else if (h && h.alive) { // circle a planet
-      this.orbitA += dt * this.speed * .25 / this.orbitR;
-      const goal = new THREE.Vector3(Math.cos(this.orbitA) * this.orbitR, Math.sin(this.orbitA * 2) * .8, Math.sin(this.orbitA) * this.orbitR).applyQuaternion(this.tilt).add(h.group.position);
-      this.steer(goal, this.speed * (this.role === "orbit" ? 1 : .5), dt, 2);
-      if (this.role === "patrol" && Math.random() < dt * .02) this.spawn(); // police move on to another planet now and then
-    } else { this.vel.multiplyScalar(1 - dt); }
+    } else this.cruise(dt);
     pos.addScaledVector(this.vel, dt);
     for (const p of planets) { if (!p.alive) continue; const d = pos.clone().sub(p.group.position), m = p.R * 1.5 + this.info.radius; if (d.length() < m) pos.copy(p.group.position).add(d.setLength(m)); }
-    if (this.vel.lengthSq() > .01) { _m.lookAt(pos.clone().add(this.vel), pos, UP); this.group.quaternion.slerp(_q.setFromRotationMatrix(_m), Math.min(1, dt * (this.T.big ? 1 : 4))); }
+    if (this.vel.lengthSq() > .25) { // face where it flies, and lean into turns
+      _m.lookAt(pos.clone().add(this.vel), pos, UP); _q.setFromRotationMatrix(_m);
+      const turnRate = this.lastDir ? this.lastDir.clone().cross(this.vel.clone().normalize()).y / Math.max(dt, .001) : 0; this.lastDir = this.vel.clone().normalize();
+      this.bank = THREE.MathUtils.lerp(this.bank || 0, THREE.MathUtils.clamp(-turnRate * .6, -.7, .7), Math.min(1, dt * 2));
+      _q.multiply(_q2.setFromAxisAngle(FWD, this.bank));
+      this.group.quaternion.slerp(_q, Math.min(1, dt * (this.T.big ? .8 : 3)));
+    }
     const moving = this.vel.length() > (this.T.big ? .5 : 2);
     for (const f of this.info.flames) f.visible = moving; setFlames(this.info, .7 + this.vel.length() / 30 + Math.random() * .3, false);
     animateShipParts(this.info, t + this.phase);
@@ -2830,6 +3085,7 @@ function junkStep(dt) { // tomatoes, shoes and rocks flying at your ship
   }
 }
 function hurtPlayer(amount) {
+  if (godOn("inv")) return;
   shipHp = Math.max(0, shipHp - amount); lastPlayerHit = clock(); shake = Math.max(shake, .04);
   flashScreen("#ff3040", .18); sfx.hit();
   if (shipHp <= 0 && !playerDead) { // your ship blows up and is rebuilt at home
@@ -2844,7 +3100,8 @@ let gameStarted = false;
 // When the game is opened from the game server, everyone shares one live galaxy.
 // Opened any other way (a file, a preview), it runs alone with the world saved in this browser.
 const WORLD_OFFSET = new THREE.Vector3(); // your planet sits at the centre of your screen's world
-const TOKENKEY = "tinyplanets.token";
+const TOKENKEY = "tinyplanets.token", GODKEY = "tinyplanets.god";
+{ const g = new URLSearchParams(location.search).get("god"); if (g) { try { localStorage.setItem(GODKEY, g); } catch {} history.replaceState(null, "", location.pathname); } } // open the game once with ?god=YOUR_KEY
 // The game page can live on an always-on static host; the game server (which may sleep) lives here:
 const GAME_SERVER = "tiny-planet-ams7.onrender.com";
 const SERVER_HOST = /^(localhost|127\.|\[::1\])/.test(location.hostname) || location.hostname === GAME_SERVER ? location.host : GAME_SERVER;
@@ -2854,7 +3111,7 @@ const net = (() => {
   const handlers = {};
   function connect() {
     ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + SERVER_HOST + "/ws");
-    ws.onopen = () => { retry = 1000; ws.send(JSON.stringify({ t: "hello", token: load(TOKENKEY) })); setPill(); };
+    ws.onopen = () => { retry = 1000; let god = null; try { god = localStorage.getItem(GODKEY); } catch {} ws.send(JSON.stringify({ t: "hello", token: load(TOKENKEY), god })); setPill(); };
     ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } try { handlers[m.t]?.(m); } catch (err) { console.error("net", m.t, err); } };
     ws.onclose = () => { setPill(); setTimeout(connect, retry); retry = Math.min(15000, retry * 1.6); };
   }
@@ -2967,6 +3224,13 @@ function setupNet() {
   net.on("left", (m) => remotes.get(m.pid)?.remove());
   net.on("hurt", (m) => { if (mode !== "fly") return; hurtPlayer(m.dmg); if (shipHp <= 0) toast(`💥 ${esc(m.by)} destroyed your ship!`, "boom", 3000); });
   net.on("shot", (m) => remoteShot(m));
+  net.on("god", () => { net.god = true; renderPanels(); renderGod(); toast("⚡ God mode is yours. Find it under ⚙."); if (ui.godMode.shield) net.send({ t: "godShield", on: true }); });
+  net.on("prank", (m) => {
+    const p = planetById(m.id); if (!p) return; (p.data.pranks ||= []).push(m.prank); p.rebuildPranks();
+    if (p.isHome) { toast(`😱 ${esc(m.prank.by)} put a ${PRANKS[m.prank.type].label.toLowerCase()} on your planet!`, "boom", 4000); markPranksSeen(); }
+    if (ui.pranks) renderPranks();
+  });
+  net.on("unprank", (m) => { const p = planetById(m.id); if (!p) return; p.data.pranks = (p.data.pranks || []).filter((k) => k.id !== m.pid); p.rebuildPranks(); if (ui.pranks) renderPranks(); });
   wakeServer().then(() => net.connect());
 }
 // A free server sleeps when nobody plays. Ping it and show a bar while it wakes (about a minute).
@@ -3173,6 +3437,7 @@ addEventListener("keydown", (e) => {
     if (e.code === "KeyB") fireWeapon("bomb");
     if (e.code === "KeyT") fireWeapon("troops");
     if (e.code === "KeyN") fireWeapon("atom");
+    if (e.code === "KeyP") doPrank();
     if (e.code === "KeyC") barrelRoll();
     if (e.code === "KeyM") { const t = currentTarget(); if (t) openMail(t); }
   }
@@ -3458,7 +3723,10 @@ function flyStep(dt) {
     $("tName").textContent = d.name; $("tOwner").textContent = d.owner;
     $("tHp").style.width = d.hp + "%"; $("tHpText").textContent = Math.ceil(d.hp) + "%";
     $("tPop").textContent = fmt(d.pop); $("tTroops").textContent = d.troops ? `· ${d.troops} troops` : "";
+    const lp = livePranks(d); $("tPrankRow").hidden = !lp.length;
+    if (lp.length) $("tPranks").textContent = `${lp.map((k) => PRANKS[k.type].icon).join("")} · next fades in ${fmtLeft(Math.min(...lp.map((k) => k.until)) - Date.now())}`;
   }
+  if (!tgt || !tgt.data) $("tPrankRow").hidden = true;
   for (const [kk, w] of Object.entries(WEAPONS)) { const el = document.querySelector(`.cd[data-w="${kk}"]`); if (el) el.style.width = Math.min(100, (clock() - (lastShot[kk] || -9)) / w.cd * 100) + "%"; }
   // planets welcome you when you come close in peace
   for (const p of planets) {
@@ -3607,7 +3875,7 @@ function startGame() {
   if (gameStarted) return; gameStarted = true; document.body.classList.remove("joining");
   buildWorld(); buildShip(); spawnNpcs(); renderDesign(); renderHangar(); renderMail(); renderChat(); renderInfo(); renderPanels(); applyQuality();
   { const dist = viewDistance(); camera.position.set(0, dist * .22, dist); }
-  renderer.setAnimationLoop(frame); setPill();
+  renderer.setAnimationLoop(frame); setPill(); renderGod(); checkWhileAway();
 }
 if (net.online) { document.body.classList.add("joining"); $("p-join").hidden = false; setupNet(); } else startGame();
 window.__tp = { net, remotes, get home() { return home; }, npcs, camera, aimPoint, get aimPlanet() { return aimPlanet; }, get view() { return view; }, get mode() { return mode; }, get state() { return state; }, get planets() { return planets; }, ship, keys, fireWeapon, setNav, vel, aimNdc, head };

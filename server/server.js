@@ -17,6 +17,7 @@ const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".
 const DAMAGE = { laser: { hp: .5, pop: .004 }, missile: { hp: 5, pop: .045 }, bomb: { hp: 14, pop: .14 } };
 const KINDS = ["laser", "missile", "bomb", "atom"];
 const MAX_STAMPS = 600, MAX_MAIL = 60, MAX_CHAT = 120;
+const PRANK_TYPES = ["sign", "photo", "graffiti", "tp", "ducks", "statue"], MAX_PRANKS = 30;
 const PLANET_KEYS = ["name", "design", "decor", "sculpt", "paint", "R"]; // what an owner may change
 
 const id = (p) => p + "_" + crypto.randomBytes(6).toString("hex");
@@ -116,6 +117,7 @@ function handle(ws, c, m) {
     case "hello": { // returning players send their secret token
       const p = Object.values(world.players).find((x) => x.token && x.token === m.token);
       if (p && world.planets[p.planetId]) { c.player = p; p.lastSeen = Date.now(); markPlayer(p); }
+      if (process.env.ADMIN_KEY && typeof m.god === "string" && m.god === process.env.ADMIN_KEY) { c.god = true; send(ws, { t: "god" }); } // only the game owner knows this key
       send(ws, { t: "welcome", you: c.player ? publicPlayer(c.player) : null, world: snapshot(), needsSeed: !Object.values(world.planets).some((p) => !p.ownerId) });
       break;
     }
@@ -157,6 +159,7 @@ function handle(ws, c, m) {
     case "pos": { if (!me) return; c.ship = { pid: me.id, name: me.name, p: m.p, q: m.q, f: !!m.f, hp: m.hp }; break; }
     case "hit": { // someone hit a planet: everyone sees the crater and the new health
       const p = world.planets[m.id]; if (!p || p.dead || !KINDS.includes(m.kind) || !Array.isArray(m.n)) return;
+      if (p.shield) return; // god mode shield
       if (m.kind !== "laser" || Math.random() < .4) { p.stamps.push([...m.n.map((x) => +(+x).toFixed(3)), KINDS.indexOf(m.kind)]); if (p.stamps.length > MAX_STAMPS) p.stamps.splice(0, p.stamps.length - MAX_STAMPS); }
       applyHit(p, m.kind); p.lastAttack = Date.now(); markPlanet(p);
       broadcast({ t: "hit", id: p.id, n: m.n, kind: m.kind, by: me ? me.id : null }, ws);
@@ -170,11 +173,38 @@ function handle(ws, c, m) {
     case "rebuild": { if (!mine) return; Object.assign(mine, { dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
     case "resetPlanet": { if (!mine || !m.planet) return; Object.assign(mine, { design: m.planet.design, decor: m.planet.decor, sculpt: null, paint: null, dead: false, hp: 100, pop: mine.maxPop, troops: 0, stamps: [] }); markPlanet(mine); broadcast({ t: "planetFull", planet: mine }); break; }
     case "shot": { if (!me) return; broadcast({ t: "shot", pid: me.id, kind: m.kind, from: m.from, to: m.to }, ws); break; }
+    case "prank": { // leave a prank on someone's planet; it fades after 2 to 4 days
+      const p = world.planets[m.id], r = m.prank; if (!p || !me || p.dead || !r || !PRANK_TYPES.includes(r.type)) return;
+      if (p.id === me.planetId && !c.god) return;
+      const hours = [48, 72, 96].includes(+r.hours) ? +r.hours : 48, vec = (a) => (Array.isArray(a) ? a.slice(0, 3).map((x) => +(+x || 0).toFixed(3)) : null);
+      const img = typeof r.img === "string" && r.img.length < 400000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img) ? r.img : ""; // pictures only, nothing else
+      const prank = { id: id("k"), type: r.type, n: vec(r.n) || [0, 1, 0], face: vec(r.face), text: text(r.text || "", 24), img, by: me.name, byId: me.id, at: Date.now(), until: Date.now() + hours * 3600e3 };
+      (p.pranks ||= []).push(prank); if (p.pranks.length > MAX_PRANKS) p.pranks.shift(); markPlanet(p);
+      broadcast({ t: "prank", id: p.id, prank });
+      break;
+    }
+    case "clean": { // the owner pays to clean a prank off their planet
+      if (!mine || !Array.isArray(mine.pranks)) return;
+      const before = mine.pranks.length; mine.pranks = mine.pranks.filter((k) => k.id !== m.pid);
+      if (mine.pranks.length !== before) { markPlanet(mine); broadcast({ t: "unprank", id: mine.id, pid: m.pid }); }
+      break;
+    }
+    case "godShield": { if (!c.god || !mine) return; mine.shield = !!m.on; markPlanet(mine); break; }
     case "pvp": { if (!me) return; const target = socketOf(m.target); if (target) send(target, { t: "hurt", dmg: Math.min(60, +m.dmg || 0), by: me.name }); break; }
   }
 }
 function uniqueNameFor(planet, name) { const n = name.trim() || planet.name; return n.toLowerCase() === planet.name.toLowerCase() ? n : uniqueName(n); }
 
+// old pranks fade away
+setInterval(() => {
+  const now = Date.now();
+  for (const p of Object.values(world.planets)) {
+    if (!Array.isArray(p.pranks) || !p.pranks.length) continue;
+    const gone = p.pranks.filter((k) => k.until <= now); if (!gone.length) continue;
+    p.pranks = p.pranks.filter((k) => k.until > now); markPlanet(p);
+    for (const k of gone) broadcast({ t: "unprank", id: p.id, pid: k.id });
+  }
+}, 60000);
 // ships of everyone online, 10 times a second
 setInterval(() => {
   const ships = [...clients.values()].map((c) => c.ship).filter(Boolean);

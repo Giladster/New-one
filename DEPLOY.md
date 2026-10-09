@@ -53,3 +53,9 @@ To show our own wake-up bar, host the game page on a free **Static Site** (it ne
 3. Open the static site's link. It wakes the game server and shows a progress bar (about 1 minute).
 
 The game server address is set in `game/index.html` (`GAME_SERVER`).
+
+## God mode (only for you)
+
+1. Render → your service → Environment → add `ADMIN_KEY` with a secret word only you know.
+2. Open the game once with `?god=YOUR_SECRET` at the end of the link.
+3. Find ⚡ God mode under the ⚙ menu. Other players never see it.
