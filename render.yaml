@@ -1,7 +1,7 @@
 # Render Blueprint: New → Blueprint → pick this repo. Creates the free game server.
 services:
   - type: web
-    name: tiny-planets
+    name: tiny-planet
     runtime: node
     plan: free
     buildCommand: npm install

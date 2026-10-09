@@ -1,4 +1,4 @@
-# Put Tiny Planets online (free)
+# Put Tiny Planet online (free)
 
 The game is one small Node server (`server/server.js`). It serves the game page and keeps the
 shared galaxy: planets, players, chat and notes. Players connect to it with a WebSocket.

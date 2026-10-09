@@ -1,4 +1,4 @@
-// Tiny Planets game server.
+// Tiny Planet game server.
 // Serves the game page, keeps the shared world (planets, players, chat, notes) and passes live
 // updates between players over a WebSocket. Run: npm install && npm start  (then open http://localhost:3000)
 import http from "node:http";
@@ -190,4 +190,4 @@ setInterval(() => {
   }
 }, 2000);
 
-server.listen(PORT, () => console.log(`Tiny Planets is running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Tiny Planet is running on http://localhost:${PORT}`));

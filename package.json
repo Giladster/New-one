@@ -1,5 +1,5 @@
 {
-  "name": "tiny-planets",
+  "name": "tiny-planet",
   "version": "1.0.0",
   "description": "Live multiplayer space game: design a planet, build a ship, visit or attack other players.",
   "type": "module",
